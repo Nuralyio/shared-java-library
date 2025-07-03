@@ -96,6 +96,12 @@
             <version>1.5.5.Final</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Include the permissions client library -->
+        <dependency>
+            <groupId>com.nuraly.library</groupId>
+            <artifactId>nuraly-permissions-client</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
     </dependencies>
 
     <build>

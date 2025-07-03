@@ -2,7 +2,6 @@ package com.nuraly.library.acl.rest;
 
 import com.nuraly.library.acl.model.*;
 import com.nuraly.library.acl.service.ACLService;
-import com.nuraly.library.permission.RequiresPermission;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -71,7 +70,6 @@ public class ACLResource {
      */
     @POST
     @Path("/grant-permission")
-    @RequiresPermission(permissionType = "admin", resourceType = "resource", resourceId = "#{resourceId}")
     public Response grantPermission(GrantPermissionRequest request) {
         try {
             ResourceGrant grant = aclService.grantPermission(
@@ -96,7 +94,6 @@ public class ACLResource {
      */
     @POST
     @Path("/grant-role-permission")
-    @RequiresPermission(permissionType = "admin", resourceType = "resource", resourceId = "#{resourceId}")
     public Response grantRolePermission(GrantRolePermissionRequest request) {
         try {
             ResourceGrant grant = aclService.grantRolePermission(
@@ -121,7 +118,6 @@ public class ACLResource {
      */
     @POST
     @Path("/revoke-permission")
-    @RequiresPermission(permissionType = "admin", resourceType = "resource", resourceId = "#{resourceId}")
     public Response revokePermission(RevokePermissionRequest request) {
         try {
             boolean revoked = aclService.revokePermission(
@@ -147,7 +143,6 @@ public class ACLResource {
      */
     @POST
     @Path("/share-resource")
-    @RequiresPermission(permissionType = "share", resourceType = "resource", resourceId = "#{resourceId}")
     public Response shareResource(ShareResourceRequest request) {
         try {
             List<ResourceGrant> grants = aclService.shareResource(
@@ -172,7 +167,6 @@ public class ACLResource {
      */
     @POST
     @Path("/publish-resource")
-    @RequiresPermission(permissionType = "publish", resourceType = "resource", resourceId = "#{resourceId}")
     public Response publishResource(PublishResourceRequest request) {
         try {
             aclService.publishResource(
@@ -196,7 +190,6 @@ public class ACLResource {
      */
     @POST
     @Path("/unpublish-resource")
-    @RequiresPermission(permissionType = "publish", resourceType = "resource", resourceId = "#{resourceId}")
     public Response unpublishResource(UnpublishResourceRequest request) {
         try {
             aclService.unpublishResource(
