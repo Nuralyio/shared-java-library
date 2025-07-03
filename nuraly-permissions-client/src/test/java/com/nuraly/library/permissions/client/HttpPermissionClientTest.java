@@ -1,8 +1,11 @@
 package com.nuraly.library.permissions.client;
 
+import com.nuraly.library.permissions.client.model.AccessibleResourcesResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -147,6 +150,21 @@ class HttpPermissionClientTest {
 
             @Override
             public boolean validatePublicLink(String token, String permissionType) {
+                return false;
+            }
+
+            @Override
+            public List<String> getAccessibleResourceIds(String userId, String permissionType, String resourceType, String tenantId) {
+                return Collections.emptyList();
+            }
+
+            @Override
+            public AccessibleResourcesResponse getAccessibleResources(String userId, String permissionType, String resourceType, String tenantId, int limit, int offset) {
+                return new AccessibleResourcesResponse(Collections.emptyList(), permissionType, resourceType, tenantId, 0);
+            }
+
+            @Override
+            public boolean hasAnyAccessibleResources(String userId, String permissionType, String resourceType, String tenantId) {
                 return false;
             }
         };

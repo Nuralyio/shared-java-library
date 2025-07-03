@@ -54,6 +54,32 @@ public class DocumentResource {
 }
 ```
 
+### 4. Get Accessible Resources
+```java
+@Inject
+private PermissionClient permissionClient;
+
+// Get all document IDs a user can read in a specific tenant
+List<String> readableDocuments = permissionClient.getAccessibleResourceIds(
+    userId, "read", "document", tenantId
+);
+
+// Get all accessible documents across all tenants (tenantId is optional)
+List<String> allDocs = permissionClient.getAccessibleResourceIds(
+    userId, "read", "document", null
+);
+
+// Get accessible resources with pagination
+AccessibleResourcesResponse response = permissionClient.getAccessibleResources(
+    userId, "read", "document", tenantId, 50, 0  // limit=50, offset=0
+);
+
+// Check if user has any accessible documents (across all tenants)
+boolean hasAnyDocs = permissionClient.hasAnyAccessibleResources(
+    userId, "read", "document", null  // tenantId is optional
+);
+```
+
 ## 🏗️ Architecture
 
 ```
@@ -82,6 +108,7 @@ public class DocumentResource {
 - **Delegation system**: Users can share resources with others using predefined roles
 - **Real-time revocation**: Immediate permission changes with clean propagation
 - **Multi-tenancy**: Complete tenant isolation with shared system roles
+- **Resource discovery**: Get lists of accessible resource IDs for efficient UI building
 
 ### PowerApps-Inspired Features
 - **Security roles**: Reusable permission bundles (Viewer, Editor, Publisher, Moderator)
