@@ -39,6 +39,46 @@ public class ACLResource {
     }
     
     /**
+     * Validates that a user is the owner of a resource or has the required permission
+     * @param userId The user ID
+     * @param resourceId The resource ID
+     * @param permissionName The required permission name (if not owner)
+     * @param tenantId The tenant ID
+     * @param skipIfNullTenant Whether to skip check if tenantId is null
+     * @return Response with error if not authorized, null if authorized
+     */
+    private Response validateOwnershipOrPermission(UUID userId, UUID resourceId, String permissionName, 
+                                                 UUID tenantId, boolean skipIfNullTenant) {
+        // Skip authorization check if tenantId is null and skipIfNullTenant is true
+        if (skipIfNullTenant && tenantId == null) {
+            return null;
+        }
+        
+        // Check if user is the owner of the resource
+        Resource resource = Resource.findById(resourceId);
+        if (resource != null && userId.equals(resource.ownerId)) {
+            return null; // Owner has full access
+        }
+        
+        // If not owner, check for specific permission
+        boolean hasPermission = aclService.hasPermission(userId, resourceId, permissionName, tenantId);
+        
+        if (!hasPermission) {
+            return Response.status(Response.Status.FORBIDDEN)
+                .entity(new ErrorResponse("Access denied: must be owner or have " + permissionName + " permission"))
+                .build();
+        }
+        return null;
+    }
+    
+    /**
+     * Validates that a user is the owner of a resource or has the required permission (no tenant skip option)
+     */
+    private Response validateOwnershipOrPermission(UUID userId, UUID resourceId, String permissionName, UUID tenantId) {
+        return validateOwnershipOrPermission(userId, resourceId, permissionName, tenantId, false);
+    }
+    
+    /**
      * Validates that a user has the required permission on a resource
      * @param userId The user ID
      * @param resourceId The resource ID
@@ -133,8 +173,9 @@ public class ACLResource {
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
-            // Check authorization (skip if tenantId is null for backwards compatibility)
-            Response authError = validatePermission(request.grantedBy, request.resourceId, 
+            // Check authorization (must be owner or have admin permission)
+            // Skip if tenantId is null for backwards compatibility
+            Response authError = validateOwnershipOrPermission(request.grantedBy, request.resourceId, 
                 "admin", request.tenantId, true);
             if (authError != null) return authError;
             
@@ -164,8 +205,8 @@ public class ACLResource {
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
-            // Check authorization
-            Response authError = validatePermission(request.grantedBy, request.resourceId, 
+            // Check authorization (must be owner or have admin permission)
+            Response authError = validateOwnershipOrPermission(request.grantedBy, request.resourceId, 
                 "admin", request.tenantId);
             if (authError != null) return authError;
             
@@ -195,8 +236,8 @@ public class ACLResource {
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
-            // Check authorization
-            Response authError = validatePermission(request.revokedBy, request.resourceId, 
+            // Check authorization (must be owner or have admin permission)
+            Response authError = validateOwnershipOrPermission(request.revokedBy, request.resourceId, 
                 "admin", request.tenantId);
             if (authError != null) return authError;
             
@@ -227,8 +268,8 @@ public class ACLResource {
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
-            // Check authorization
-            Response authError = validatePermission(request.sharedBy, request.resourceId, 
+            // Check authorization (must be owner or have share permission)
+            Response authError = validateOwnershipOrPermission(request.sharedBy, request.resourceId, 
                 "share", request.tenantId);
             if (authError != null) return authError;
             
@@ -258,8 +299,8 @@ public class ACLResource {
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
-            // Check authorization
-            Response authError = validatePermission(request.publishedBy, request.resourceId, 
+            // Check authorization (must be owner or have publish permission)
+            Response authError = validateOwnershipOrPermission(request.publishedBy, request.resourceId, 
                 "publish", request.tenantId);
             if (authError != null) return authError;
             
@@ -288,8 +329,8 @@ public class ACLResource {
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
-            // Check authorization
-            Response authError = validatePermission(request.unpublishedBy, request.resourceId, 
+            // Check authorization (must be owner or have publish permission)
+            Response authError = validateOwnershipOrPermission(request.unpublishedBy, request.resourceId, 
                 "publish", request.tenantId);
             if (authError != null) return authError;
             
