@@ -1,8 +1,33 @@
-# nuraly-permissions
+# Nuraly Advanced ACL System
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+An enterprise-grade Access Control List (ACL) system built with Quarkus, inspired by PowerApps security model with full support for anonymous access, delegation, and multi-tenant architecture.
 
-If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## 🚀 Features
+
+### Core ACL Capabilities
+- **Fine-grained permissions**: Custom permissions beyond CRUD (read, write, annotate, publish, share, moderate, etc.)
+- **Multi-scope permissions**: Application, Organization, and Resource level permissions
+- **Role-based access control**: Hierarchical roles with inheritance
+- **Anonymous/Public access**: Public sharing with configurable permissions and expiration
+- **Delegation system**: Users can share resources with others using predefined roles
+- **Real-time revocation**: Immediate permission changes with clean propagation
+- **Multi-tenancy**: Complete tenant isolation with shared system roles
+
+### PowerApps-Inspired Features
+- **Security roles**: Reusable permission bundles (Viewer, Editor, Publisher, Moderator)
+- **Custom permission sets**: Define organization-specific permissions
+- **Record-level access control**: Per-resource permission management
+- **Sharing policies**: Templates like "anyone with the link can view"
+- **Environment-level security**: Tenant-wide permission management
+- **Ownership-based security**: Automatic owner permissions
+
+### Advanced Security
+- **Audit logging**: Complete audit trail of all permission changes
+- **Public link generation**: Secure token-based anonymous access
+- **Time-limited access**: Permissions with expiration dates
+- **Usage tracking**: Monitor resource access patterns
+
+This project uses Quarkus, the Supersonic Subatomic Java Framework. If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
 
 ## Running the application in dev mode
 
