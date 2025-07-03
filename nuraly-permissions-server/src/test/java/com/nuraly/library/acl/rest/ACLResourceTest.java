@@ -91,6 +91,48 @@ public class ACLResourceTest {
         resource.persistAndFlush();
         resourceId = resource.id;
         
+        // Grant necessary permissions to the test user for authorization checks
+        // Since the user is the owner of the resource, they should have admin/share/publish permissions
+        Permission adminPermission = Permission.findByName("admin");
+        Permission sharePermission = Permission.findByName("share");
+        Permission publishPermission = Permission.findByName("publish");
+        
+        if (adminPermission != null) {
+            ResourceGrant adminGrant = new ResourceGrant();
+            adminGrant.user = user;
+            adminGrant.resource = resource;
+            adminGrant.permission = adminPermission;
+            adminGrant.grantType = GrantType.DIRECT;
+            adminGrant.grantedBy = userId;
+            adminGrant.tenantId = tenantId;
+            adminGrant.isActive = true;
+            adminGrant.persistAndFlush();
+        }
+        
+        if (sharePermission != null) {
+            ResourceGrant shareGrant = new ResourceGrant();
+            shareGrant.user = user;
+            shareGrant.resource = resource;
+            shareGrant.permission = sharePermission;
+            shareGrant.grantType = GrantType.DIRECT;
+            shareGrant.grantedBy = userId;
+            shareGrant.tenantId = tenantId;
+            shareGrant.isActive = true;
+            shareGrant.persistAndFlush();
+        }
+        
+        if (publishPermission != null) {
+            ResourceGrant publishGrant = new ResourceGrant();
+            publishGrant.user = user;
+            publishGrant.resource = resource;
+            publishGrant.permission = publishPermission;
+            publishGrant.grantType = GrantType.DIRECT;
+            publishGrant.grantedBy = userId;
+            publishGrant.tenantId = tenantId;
+            publishGrant.isActive = true;
+            publishGrant.persistAndFlush();
+        }
+        
         // Ensure all data is committed to database
         em.flush();
         em.clear();

@@ -24,6 +24,63 @@ public class ACLResource {
     ACLService aclService;
     
     /**
+     * Validates that a resource exists
+     * @param resourceId The resource ID to validate
+     * @return Response with error if resource not found, null if valid
+     */
+    private Response validateResourceExists(UUID resourceId) {
+        Resource resource = Resource.findById(resourceId);
+        if (resource == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                .entity(new ErrorResponse("Resource not found"))
+                .build();
+        }
+        return null;
+    }
+    
+    /**
+     * Validates that a user has the required permission on a resource
+     * @param userId The user ID
+     * @param resourceId The resource ID
+     * @param permissionName The required permission name
+     * @param tenantId The tenant ID
+     * @param skipIfNullTenant Whether to skip check if tenantId is null
+     * @return Response with error if permission denied, null if authorized
+     */
+    private Response validatePermission(UUID userId, UUID resourceId, String permissionName, 
+                                      UUID tenantId, boolean skipIfNullTenant) {
+        // Skip authorization check if tenantId is null and skipIfNullTenant is true
+        if (skipIfNullTenant && tenantId == null) {
+            return null;
+        }
+        
+        boolean hasPermission = aclService.hasPermission(userId, resourceId, permissionName, tenantId);
+        
+        if (!hasPermission) {
+            return Response.status(Response.Status.FORBIDDEN)
+                .entity(new ErrorResponse("Access denied: " + permissionName + " permission required"))
+                .build();
+        }
+        return null;
+    }
+    
+    /**
+     * Validates that a user has the required permission on a resource (no tenant skip option)
+     */
+    private Response validatePermission(UUID userId, UUID resourceId, String permissionName, UUID tenantId) {
+        return validatePermission(userId, resourceId, permissionName, tenantId, false);
+    }
+    
+    /**
+     * Creates a standardized error response for exceptions
+     */
+    private Response createErrorResponse(Exception e) {
+        return Response.status(Response.Status.BAD_REQUEST)
+            .entity(new ErrorResponse(e.getMessage()))
+            .build();
+    }
+    
+    /**
      * Check if user has permission on a resource
      * POST /api/v1/acl/check-permission
      */
@@ -72,6 +129,15 @@ public class ACLResource {
     @Path("/grant-permission")
     public Response grantPermission(GrantPermissionRequest request) {
         try {
+            // Validate resource exists
+            Response validationError = validateResourceExists(request.resourceId);
+            if (validationError != null) return validationError;
+            
+            // Check authorization (skip if tenantId is null for backwards compatibility)
+            Response authError = validatePermission(request.grantedBy, request.resourceId, 
+                "admin", request.tenantId, true);
+            if (authError != null) return authError;
+            
             ResourceGrant grant = aclService.grantPermission(
                 request.userId,
                 request.resourceId,
@@ -82,9 +148,7 @@ public class ACLResource {
             
             return Response.ok(grant).build();
         } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse(e.getMessage()))
-                .build();
+            return createErrorResponse(e);
         }
     }
     
@@ -96,6 +160,15 @@ public class ACLResource {
     @Path("/grant-role-permission")
     public Response grantRolePermission(GrantRolePermissionRequest request) {
         try {
+            // Validate resource exists
+            Response validationError = validateResourceExists(request.resourceId);
+            if (validationError != null) return validationError;
+            
+            // Check authorization
+            Response authError = validatePermission(request.grantedBy, request.resourceId, 
+                "admin", request.tenantId);
+            if (authError != null) return authError;
+            
             ResourceGrant grant = aclService.grantRolePermission(
                 request.roleId,
                 request.resourceId,
@@ -106,9 +179,7 @@ public class ACLResource {
             
             return Response.ok(grant).build();
         } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse(e.getMessage()))
-                .build();
+            return createErrorResponse(e);
         }
     }
     
@@ -120,6 +191,15 @@ public class ACLResource {
     @Path("/revoke-permission")
     public Response revokePermission(RevokePermissionRequest request) {
         try {
+            // Validate resource exists
+            Response validationError = validateResourceExists(request.resourceId);
+            if (validationError != null) return validationError;
+            
+            // Check authorization
+            Response authError = validatePermission(request.revokedBy, request.resourceId, 
+                "admin", request.tenantId);
+            if (authError != null) return authError;
+            
             boolean revoked = aclService.revokePermission(
                 request.userId,
                 request.resourceId,
@@ -131,9 +211,7 @@ public class ACLResource {
             
             return Response.ok(new OperationResult(revoked, revoked ? "Permission revoked" : "Permission not found")).build();
         } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse(e.getMessage()))
-                .build();
+            return createErrorResponse(e);
         }
     }
     
@@ -145,6 +223,15 @@ public class ACLResource {
     @Path("/share-resource")
     public Response shareResource(ShareResourceRequest request) {
         try {
+            // Validate resource exists
+            Response validationError = validateResourceExists(request.resourceId);
+            if (validationError != null) return validationError;
+            
+            // Check authorization
+            Response authError = validatePermission(request.sharedBy, request.resourceId, 
+                "share", request.tenantId);
+            if (authError != null) return authError;
+            
             List<ResourceGrant> grants = aclService.shareResource(
                 request.resourceId,
                 request.targetUserId,
@@ -155,9 +242,7 @@ public class ACLResource {
             
             return Response.ok(grants).build();
         } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse(e.getMessage()))
-                .build();
+            return createErrorResponse(e);
         }
     }
     
@@ -169,6 +254,15 @@ public class ACLResource {
     @Path("/publish-resource")
     public Response publishResource(PublishResourceRequest request) {
         try {
+            // Validate resource exists
+            Response validationError = validateResourceExists(request.resourceId);
+            if (validationError != null) return validationError;
+            
+            // Check authorization
+            Response authError = validatePermission(request.publishedBy, request.resourceId, 
+                "publish", request.tenantId);
+            if (authError != null) return authError;
+            
             aclService.publishResource(
                 request.resourceId,
                 request.permissionNames,
@@ -178,9 +272,7 @@ public class ACLResource {
             
             return Response.ok(new OperationResult(true, "Resource published successfully")).build();
         } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse(e.getMessage()))
-                .build();
+            return createErrorResponse(e);
         }
     }
     
@@ -192,6 +284,15 @@ public class ACLResource {
     @Path("/unpublish-resource")
     public Response unpublishResource(UnpublishResourceRequest request) {
         try {
+            // Validate resource exists
+            Response validationError = validateResourceExists(request.resourceId);
+            if (validationError != null) return validationError;
+            
+            // Check authorization
+            Response authError = validatePermission(request.unpublishedBy, request.resourceId, 
+                "publish", request.tenantId);
+            if (authError != null) return authError;
+            
             aclService.unpublishResource(
                 request.resourceId,
                 request.unpublishedBy,
@@ -200,9 +301,7 @@ public class ACLResource {
             
             return Response.ok(new OperationResult(true, "Resource unpublished successfully")).build();
         } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse(e.getMessage()))
-                .build();
+            return createErrorResponse(e);
         }
     }
     
@@ -218,9 +317,7 @@ public class ACLResource {
             List<Resource> resources = aclService.getAccessibleResources(userId, tenantId);
             return Response.ok(resources).build();
         } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse(e.getMessage()))
-                .build();
+            return createErrorResponse(e);
         }
     }
     
@@ -235,9 +332,7 @@ public class ACLResource {
             List<Resource> resources = aclService.getPublicResources();
             return Response.ok(resources).build();
         } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse(e.getMessage()))
-                .build();
+            return createErrorResponse(e);
         }
     }
     
@@ -253,9 +348,7 @@ public class ACLResource {
             boolean isValid = aclService.validatePublicLink(token, permissionName);
             return Response.ok(new OperationResult(isValid, isValid ? "Valid public link" : "Invalid public link")).build();
         } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse(e.getMessage()))
-                .build();
+            return createErrorResponse(e);
         }
     }
     
@@ -276,9 +369,7 @@ public class ACLResource {
                     .build();
             }
         } catch (Exception e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse(e.getMessage()))
-                .build();
+            return createErrorResponse(e);
         }
     }
 }
