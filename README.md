@@ -2,6 +2,76 @@
 
 An enterprise-grade Access Control List (ACL) system built with Quarkus, inspired by PowerApps security model with full support for anonymous access, delegation, and multi-tenant architecture.
 
+## 📦 Project Structure
+
+This project is split into two main components:
+
+### 🔧 **nuraly-permissions-client** (Lightweight Library)
+Lightweight permission checking client for microservices:
+- **Size**: ~200KB 
+- **Dependencies**: Jakarta EE APIs, Jackson, HTTP Client
+- **Purpose**: Declarative permission checking with `@RequiresPermission` annotation
+- **Usage**: Include in microservices that need permission checking
+
+### 🏢 **nuraly-permissions-server** (Full ACL Service)  
+Complete ACL service with database and full feature set:
+- **Size**: ~50MB+
+- **Dependencies**: Quarkus, Hibernate, PostgreSQL, etc.
+- **Purpose**: Central permissions service with full ACL capabilities
+- **Usage**: Deploy as standalone service
+
+## 🚀 Quick Start for Microservices
+
+### 1. Add Client Dependency
+```xml
+<dependency>
+    <groupId>com.nuraly.library</groupId>
+    <artifactId>nuraly-permissions-client</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+</dependency>
+```
+
+### 2. Configure Properties
+```properties
+nuraly.permissions.service.url=http://permissions-service:8080
+```
+
+### 3. Use Annotations
+```java
+@Path("/api/documents")
+public class DocumentResource {
+    @GET
+    @Path("/{id}")
+    @RequiresPermission(
+        permissionType = "read",
+        resourceType = "document", 
+        resourceId = "#{id}"
+    )
+    public Response getDocument(@PathParam("id") String id) {
+        // Business logic - permission already checked
+        return Response.ok().build();
+    }
+}
+```
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────┐    HTTP     ┌─────────────────────────┐
+│    Microservice A   │─────────────│                         │
+│  @RequiresPermission│             │  Permissions Service    │
+│  PermissionClient   │             │  (nuraly-permissions-   │
+├─────────────────────┤             │   server)               │
+│    Microservice B   │─────────────│                         │
+│  @RequiresPermission│             │  ┌─────────────────────┐ │
+│  PermissionClient   │             │  │   ACL Service       │ │
+├─────────────────────┤             │  │   Database          │ │
+│    Microservice C   │─────────────│  │   Audit Logs        │ │
+│  @RequiresPermission│             │  │   Multi-tenancy     │ │
+│  PermissionClient   │             │  └─────────────────────┘ │
+└─────────────────────┘             └─────────────────────────┘
+```
+
 ## 🚀 Features
 
 ### Core ACL Capabilities
@@ -27,61 +97,29 @@ An enterprise-grade Access Control List (ACL) system built with Quarkus, inspire
 - **Time-limited access**: Permissions with expiration dates
 - **Usage tracking**: Monitor resource access patterns
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework. If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.
+## 🔧 Development
 
-## Running the application in dev mode
-
-You can run your application in dev mode that enables live coding using:
-
+### Building the Entire Project
 ```shell script
+mvn clean install
+```
+
+### Running the Permissions Service (Server)
+```shell script
+cd nuraly-permissions-server
 ./mvnw quarkus:dev
 ```
 
-> **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at <http://localhost:8080/q/dev/>.
-
-## Packaging and running the application
-
-The application can be packaged using:
-
+### Running Client Tests
 ```shell script
-./mvnw package
+cd nuraly-permissions-client  
+mvn test
 ```
 
-It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
-Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+## 📚 Documentation
 
-The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+- **Client Usage**: See `nuraly-permissions-client/README.md`
+- **Server Setup**: See `nuraly-permissions-server/README.md` 
+- **API Documentation**: Available at `/q/swagger-ui` when running server
 
-If you want to build an _über-jar_, execute the following command:
-
-```shell script
-./mvnw package -Dquarkus.package.jar.type=uber-jar
-```
-
-The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
-
-## Creating a native executable
-
-You can create a native executable using:
-
-```shell script
-./mvnw package -Dnative
-```
-
-Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
-
-```shell script
-./mvnw package -Dnative -Dquarkus.native.container-build=true
-```
-
-You can then execute your native executable with: `./target/nuraly-permissions-1.0.0-SNAPSHOT-runner`
-
-If you want to learn more about building native executables, please consult <https://quarkus.io/guides/maven-tooling>.
-
-## Provided Code
-
-### REST
-
-Easily start your REST Web Services
-
-[Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+This project uses Quarkus, the Supersonic Subatomic Java Framework. If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.

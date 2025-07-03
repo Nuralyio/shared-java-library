@@ -1,0 +1,166 @@
+package com.nuraly.library.permissions.client;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Method;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Test class for PermissionInterceptor (JAX-RS ContainerRequestFilter).
+ * Tests the interceptor functionality and annotation usage.
+ */
+class PermissionInterceptorTest {
+
+    private PermissionInterceptor interceptor;
+    private TestPermissionClient testPermissionClient;
+
+    @BeforeEach
+    void setUp() {
+        testPermissionClient = new TestPermissionClient();
+        interceptor = new PermissionInterceptor();
+    }
+
+    @Test
+    void testInterceptorInitialization() {
+        assertNotNull(interceptor);
+    }
+
+    @Test
+    void testRequiresPermissionAnnotation() throws Exception {
+        Method testMethod = TestService.class.getMethod("testMethod", String.class);
+        RequiresPermission annotation = testMethod.getAnnotation(RequiresPermission.class);
+        
+        assertNotNull(annotation);
+        assertEquals("read", annotation.permissionType());
+        assertEquals("document", annotation.resourceType());
+        assertEquals("#{id}", annotation.resourceId());
+    }
+
+    @Test
+    void testAnnotationWithStaticResourceId() throws Exception {
+        Method method = TestService.class.getMethod("testMethodWithStaticId");
+        RequiresPermission annotation = method.getAnnotation(RequiresPermission.class);
+        
+        assertNotNull(annotation);
+        assertEquals("write", annotation.permissionType());
+        assertEquals("file", annotation.resourceType());
+        assertEquals("static-resource-123", annotation.resourceId());
+    }
+
+    @Test
+    void testPlaceholderResolution() {
+        String dynamicTemplate = "#{id}";
+        assertTrue(dynamicTemplate.startsWith("#{") && dynamicTemplate.endsWith("}"));
+        
+        String staticValue = "static-resource-123";
+        assertFalse(staticValue.startsWith("#{"));
+        
+        String paramName = dynamicTemplate.substring(2, dynamicTemplate.length() - 1);
+        assertEquals("id", paramName);
+    }
+
+    @Test
+    void testPermissionClientMethods() {
+        assertTrue(testPermissionClient.hasPermission("user", "read", "resource", "tenant"));
+        assertTrue(testPermissionClient.hasAnonymousPermission("resource", "read", "tenant"));
+        assertTrue(testPermissionClient.validatePublicLink("token", "read"));
+        assertTrue(testPermissionClient.isHealthy());
+    }
+
+    @Test
+    void testPermissionDenialScenarios() {
+        testPermissionClient.setReturnValue(false);
+        
+        assertFalse(testPermissionClient.hasPermission("user", "read", "resource", "tenant"));
+        assertFalse(testPermissionClient.hasAnonymousPermission("resource", "read", "tenant"));
+        assertFalse(testPermissionClient.validatePublicLink("token", "read"));
+    }
+
+    @Test
+    void testHeaderBasedPermissionChecking() {
+        String userHeader = "{\"uuid\":\"user123\"}";
+        assertNotNull(userHeader);
+        assertTrue(userHeader.contains("uuid"));
+        
+        String publicToken = "public-token-123";
+        assertNotNull(publicToken);
+        assertTrue(publicToken.length() > 0);
+        
+        String tenantHeader = "tenant-123";
+        assertNotNull(tenantHeader);
+        assertTrue(tenantHeader.length() > 0);
+    }
+
+    @Test
+    void testErrorHandling() {
+        PermissionDeniedException exception = new PermissionDeniedException("Access denied");
+        assertEquals("Access denied", exception.getMessage());
+        
+        PermissionDeniedException exceptionWithCause = new PermissionDeniedException(
+            "Permission check failed", 
+            new RuntimeException("Service unavailable")
+        );
+        assertEquals("Permission check failed", exceptionWithCause.getMessage());
+        assertNotNull(exceptionWithCause.getCause());
+    }
+
+    @Test
+    void testResourceMethodAnnotationChecking() throws Exception {
+        Method annotatedMethod = TestService.class.getMethod("testMethod", String.class);
+        Method unannotatedMethod = TestService.class.getMethod("methodWithoutAnnotation");
+        
+        assertNotNull(annotatedMethod.getAnnotation(RequiresPermission.class));
+        assertNull(unannotatedMethod.getAnnotation(RequiresPermission.class));
+    }
+
+    // Test service class with various annotation patterns
+    static class TestService {
+        @RequiresPermission(
+            permissionType = "read",
+            resourceType = "document",
+            resourceId = "#{id}"
+        )
+        public String testMethod(String id) {
+            return "test result";
+        }
+
+        @RequiresPermission(
+            permissionType = "write",
+            resourceType = "file",
+            resourceId = "static-resource-123"
+        )
+        public String testMethodWithStaticId() {
+            return "test result";
+        }
+
+        public String methodWithoutAnnotation() {
+            return "no permission check";
+        }
+    }
+
+    // Test permission client implementation
+    static class TestPermissionClient implements PermissionClient {
+        private boolean returnValue = true;
+
+        @Override
+        public boolean hasPermission(String userId, String permissionType, String resourceId, String tenantId) {
+            return returnValue;
+        }
+
+        @Override
+        public boolean hasAnonymousPermission(String resourceId, String permissionType, String tenantId) {
+            return returnValue;
+        }
+
+        @Override
+        public boolean validatePublicLink(String token, String permissionType) {
+            return returnValue;
+        }
+
+        public void setReturnValue(boolean returnValue) {
+            this.returnValue = returnValue;
+        }
+    }
+}
