@@ -2,6 +2,7 @@ package com.nuraly.library.acl.rest;
 
 import com.nuraly.library.acl.model.*;
 import com.nuraly.library.acl.service.ACLService;
+import com.nuraly.library.acl.service.UserContextService;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -32,6 +33,9 @@ public class ACLResource {
     @Inject
     ACLService aclService;
     
+    @Inject
+    UserContextService userContextService;
+
     /**
      * Validates that a resource exists
      * @param resourceId The resource ID to validate
@@ -45,6 +49,58 @@ public class ACLResource {
                 .build();
         }
         return null;
+    }
+    
+    /**
+     * Validates that the current authenticated user is the owner of a resource or has the required permission
+     * @param resourceId The resource ID
+     * @param permissionName The required permission name (if not owner)
+     * @param skipIfNullTenant Whether to skip check if tenantId is null
+     * @return Response with error if not authorized, null if authorized
+     */
+    private Response validateCurrentUserOwnershipOrPermission(UUID resourceId, String permissionName, boolean skipIfNullTenant) {
+        UUID currentUserId = userContextService.getCurrentUserId();
+        if (currentUserId == null) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(new ErrorResponse("Authentication required"))
+                .build();
+        }
+        
+        UUID currentTenantId = userContextService.getCurrentTenantId();
+        return validateOwnershipOrPermission(currentUserId, resourceId, permissionName, currentTenantId, skipIfNullTenant);
+    }
+    
+    /**
+     * Validates that the current authenticated user is the owner of a resource or has the required permission (no tenant skip option)
+     */
+    private Response validateCurrentUserOwnershipOrPermission(UUID resourceId, String permissionName) {
+        return validateCurrentUserOwnershipOrPermission(resourceId, permissionName, false);
+    }
+    
+    /**
+     * Validates that the current authenticated user has the required permission on a resource
+     * @param resourceId The resource ID
+     * @param permissionName The required permission name
+     * @param skipIfNullTenant Whether to skip check if tenantId is null
+     * @return Response with error if permission denied, null if authorized
+     */
+    private Response validateCurrentUserPermission(UUID resourceId, String permissionName, boolean skipIfNullTenant) {
+        UUID currentUserId = userContextService.getCurrentUserId();
+        if (currentUserId == null) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                .entity(new ErrorResponse("Authentication required"))
+                .build();
+        }
+        
+        UUID currentTenantId = userContextService.getCurrentTenantId();
+        return validatePermission(currentUserId, resourceId, permissionName, currentTenantId, skipIfNullTenant);
+    }
+    
+    /**
+     * Validates that the current authenticated user has the required permission on a resource (no tenant skip option)
+     */
+    private Response validateCurrentUserPermission(UUID resourceId, String permissionName) {
+        return validateCurrentUserPermission(resourceId, permissionName, false);
     }
     
     /**
@@ -203,14 +259,14 @@ public class ACLResource {
     }
     
     /**
-     * Grant permission to a user on a resource
+     * Grant permission to a user on a resource (legacy endpoint)
      * POST /api/v1/acl/grant-permission
      */
     @POST
     @Path("/grant-permission")
     @Operation(
-        summary = "Grant permission",
-        description = "Grant a specific permission to a user on a resource"
+        summary = "Grant permission (legacy)",
+        description = "Grant a specific permission to a user on a resource - legacy endpoint with explicit user IDs"
     )
     @APIResponses({
         @APIResponse(
@@ -234,22 +290,91 @@ public class ACLResource {
         @Parameter(description = "Grant permission request", required = true)
         GrantPermissionRequest request) {
         try {
+            // This is the legacy endpoint - we still support the old format for backward compatibility
+            UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
-            // Check authorization (must be owner or have admin permission)
-            // Skip if tenantId is null for backwards compatibility
-            Response authError = validateOwnershipOrPermission(request.grantedBy, request.resourceId, 
-                "admin", request.tenantId, true);
+            // Check authorization using current user (must be owner or have admin permission)
+            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "admin");
             if (authError != null) return authError;
             
             ResourceGrant grant = aclService.grantPermission(
                 request.userId,
                 request.resourceId,
                 request.permissionId,
-                request.grantedBy,
-                request.tenantId
+                currentUserId, // Use current user as grantedBy
+                currentTenantId
+            );
+            
+            return Response.ok(grant).build();
+        } catch (Exception e) {
+            return createErrorResponse(e);
+        }
+    }
+    
+    /**
+     * Grant permission to a user on a resource (simplified)
+     * POST /api/v1/acl/grant
+     */
+    @POST
+    @Path("/grant")
+    @Operation(
+        summary = "Grant permission",
+        description = "Grant a specific permission to a user on a resource using current user context"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Permission granted successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = ResourceGrant.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions to grant access"
+        )
+    })
+    public Response grantPermissionSimple(
+        @Parameter(description = "Grant permission request", required = true)
+        SimpleGrantPermissionRequest request) {
+        try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
+            // Validate resource exists
+            Response validationError = validateResourceExists(request.resourceId);
+            if (validationError != null) return validationError;
+            
+            // Check authorization (must be owner or have admin permission)
+            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "admin");
+            if (authError != null) return authError;
+            
+            ResourceGrant grant = aclService.grantPermission(
+                request.targetUserId,
+                request.resourceId,
+                request.permissionId,
+                currentUserId,
+                currentTenantId
             );
             
             return Response.ok(grant).build();
@@ -266,7 +391,7 @@ public class ACLResource {
     @Path("/grant-role-permission")
     @Operation(
         summary = "Grant role-based permission",
-        description = "Grant a permission to a role on a resource"
+        description = "Grant a permission to a role on a resource using current user context"
     )
     @APIResponses({
         @APIResponse(
@@ -282,6 +407,10 @@ public class ACLResource {
             description = "Bad request - resource not found or invalid parameters"
         ),
         @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
             responseCode = "403",
             description = "Forbidden - insufficient permissions to grant access"
         )
@@ -290,21 +419,29 @@ public class ACLResource {
         @Parameter(description = "Grant role permission request", required = true)
         GrantRolePermissionRequest request) {
         try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
             // Check authorization (must be owner or have admin permission)
-            Response authError = validateOwnershipOrPermission(request.grantedBy, request.resourceId, 
-                "admin", request.tenantId);
+            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "admin");
             if (authError != null) return authError;
             
             ResourceGrant grant = aclService.grantRolePermission(
                 request.roleId,
                 request.resourceId,
                 request.permissionId,
-                request.grantedBy,
-                request.tenantId
+                currentUserId,
+                currentTenantId
             );
             
             return Response.ok(grant).build();
@@ -314,14 +451,14 @@ public class ACLResource {
     }
     
     /**
-     * Revoke permission from a user on a resource
+     * Revoke permission from a user on a resource (legacy)
      * POST /api/v1/acl/revoke-permission
      */
     @POST
     @Path("/revoke-permission")
     @Operation(
-        summary = "Revoke permission",
-        description = "Revoke a specific permission from a user on a resource"
+        summary = "Revoke permission (legacy)",
+        description = "Revoke a specific permission from a user on a resource - legacy endpoint"
     )
     @APIResponses({
         @APIResponse(
@@ -337,6 +474,10 @@ public class ACLResource {
             description = "Bad request - resource not found or invalid parameters"
         ),
         @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
             responseCode = "403",
             description = "Forbidden - insufficient permissions to revoke access"
         )
@@ -345,22 +486,98 @@ public class ACLResource {
         @Parameter(description = "Revoke permission request", required = true)
         RevokePermissionRequest request) {
         try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
             // Check authorization (must be owner or have admin permission)
-            Response authError = validateOwnershipOrPermission(request.revokedBy, request.resourceId, 
-                "admin", request.tenantId);
+            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "admin");
             if (authError != null) return authError;
             
             boolean revoked = aclService.revokePermission(
                 request.userId,
                 request.resourceId,
                 request.permissionId,
-                request.revokedBy,
+                currentUserId,
                 request.reason,
-                request.tenantId
+                currentTenantId
+            );
+            
+            return Response.ok(new OperationResult(revoked, revoked ? "Permission revoked" : "Permission not found")).build();
+        } catch (Exception e) {
+            return createErrorResponse(e);
+        }
+    }
+    
+    /**
+     * Revoke permission from a user on a resource (simplified)
+     * POST /api/v1/acl/revoke
+     */
+    @POST
+    @Path("/revoke")
+    @Operation(
+        summary = "Revoke permission",
+        description = "Revoke a specific permission from a user on a resource using current user context"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Permission revoke operation completed",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = OperationResult.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions to revoke access"
+        )
+    })
+    public Response revokePermissionSimple(
+        @Parameter(description = "Revoke permission request", required = true)
+        SimpleRevokePermissionRequest request) {
+        try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
+            // Validate resource exists
+            Response validationError = validateResourceExists(request.resourceId);
+            if (validationError != null) return validationError;
+            
+            // Check authorization (must be owner or have admin permission)
+            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "admin");
+            if (authError != null) return authError;
+            
+            boolean revoked = aclService.revokePermission(
+                request.targetUserId,
+                request.resourceId,
+                request.permissionId,
+                currentUserId,
+                request.reason,
+                currentTenantId
             );
             
             return Response.ok(new OperationResult(revoked, revoked ? "Permission revoked" : "Permission not found")).build();
@@ -377,7 +594,7 @@ public class ACLResource {
     @Path("/share-resource")
     @Operation(
         summary = "Share resource",
-        description = "Share a resource with another user by granting them a specific role"
+        description = "Share a resource with another user by granting them a specific role using current user context"
     )
     @APIResponses({
         @APIResponse(
@@ -393,6 +610,10 @@ public class ACLResource {
             description = "Bad request - resource not found or invalid parameters"
         ),
         @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
             responseCode = "403",
             description = "Forbidden - insufficient permissions to share resource"
         )
@@ -401,21 +622,29 @@ public class ACLResource {
         @Parameter(description = "Share resource request", required = true)
         ShareResourceRequest request) {
         try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
             // Check authorization (must be owner or have share permission)
-            Response authError = validateOwnershipOrPermission(request.sharedBy, request.resourceId, 
-                "share", request.tenantId);
+            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "share");
             if (authError != null) return authError;
             
             List<ResourceGrant> grants = aclService.shareResource(
                 request.resourceId,
                 request.targetUserId,
                 request.roleId,
-                request.sharedBy,
-                request.tenantId
+                currentUserId,
+                currentTenantId
             );
             
             return Response.ok(grants).build();
@@ -432,7 +661,7 @@ public class ACLResource {
     @Path("/publish-resource")
     @Operation(
         summary = "Publish resource",
-        description = "Make a resource publicly accessible with specified permissions"
+        description = "Make a resource publicly accessible with specified permissions using current user context"
     )
     @APIResponses({
         @APIResponse(
@@ -448,6 +677,10 @@ public class ACLResource {
             description = "Bad request - resource not found or invalid parameters"
         ),
         @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
             responseCode = "403",
             description = "Forbidden - insufficient permissions to publish resource"
         )
@@ -456,20 +689,28 @@ public class ACLResource {
         @Parameter(description = "Publish resource request", required = true)
         PublishResourceRequest request) {
         try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
             // Check authorization (must be owner or have publish permission)
-            Response authError = validateOwnershipOrPermission(request.publishedBy, request.resourceId, 
-                "publish", request.tenantId);
+            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "publish");
             if (authError != null) return authError;
             
             aclService.publishResource(
                 request.resourceId,
                 request.permissionNames,
-                request.publishedBy,
-                request.tenantId
+                currentUserId,
+                currentTenantId
             );
             
             return Response.ok(new OperationResult(true, "Resource published successfully")).build();
@@ -486,7 +727,7 @@ public class ACLResource {
     @Path("/unpublish-resource")
     @Operation(
         summary = "Unpublish resource",
-        description = "Remove public access from a resource"
+        description = "Remove public access from a resource using current user context"
     )
     @APIResponses({
         @APIResponse(
@@ -502,6 +743,10 @@ public class ACLResource {
             description = "Bad request - resource not found or invalid parameters"
         ),
         @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
             responseCode = "403",
             description = "Forbidden - insufficient permissions to unpublish resource"
         )
@@ -510,19 +755,27 @@ public class ACLResource {
         @Parameter(description = "Unpublish resource request", required = true)
         UnpublishResourceRequest request) {
         try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
             if (validationError != null) return validationError;
             
             // Check authorization (must be owner or have publish permission)
-            Response authError = validateOwnershipOrPermission(request.unpublishedBy, request.resourceId, 
-                "publish", request.tenantId);
+            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "publish");
             if (authError != null) return authError;
             
             aclService.unpublishResource(
                 request.resourceId,
-                request.unpublishedBy,
-                request.tenantId
+                currentUserId,
+                currentTenantId
             );
             
             return Response.ok(new OperationResult(true, "Resource unpublished successfully")).build();
@@ -690,6 +943,52 @@ public class ACLResource {
             return createErrorResponse(e);
         }
     }
+    
+    /**
+     * Example endpoint showing how to use current user context
+     * GET /api/v1/acl/my-resources
+     */
+    @GET
+    @Path("/my-resources")
+    @Operation(
+        summary = "Get my accessible resources",
+        description = "Get resources accessible to the currently authenticated user"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "My resources retrieved successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = Resource.class, type = SchemaType.ARRAY)
+            )
+        ),
+        @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        )
+    })
+    public Response getMyResources(
+        @Parameter(description = "Resource type to filter by (optional)")
+        @QueryParam("resourceType") String resourceType,
+        @Parameter(description = "Permission name to filter by (optional)")
+        @QueryParam("permission") String permissionName) {
+        try {
+            // Get current user from context
+            UUID currentUserId = userContextService.getCurrentUserId();
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            List<Resource> resources = aclService.getAccessibleResources(currentUserId, currentTenantId, resourceType, permissionName);
+            return Response.ok(resources).build();
+        } catch (Exception e) {
+            return createErrorResponse(e);
+        }
+    }
 }
 
 // Request/Response DTOs
@@ -748,11 +1047,20 @@ class GrantPermissionRequest {
     @Schema(description = "Permission ID to grant", required = true)
     public UUID permissionId;
     
-    @Schema(description = "User ID who is granting the permission", required = true)
-    public UUID grantedBy;
+    @Schema(description = "Optional expiration date for the permission")
+    public LocalDateTime expiresAt;
+}
+
+@Schema(description = "Simplified request to grant a permission using current user context")
+class SimpleGrantPermissionRequest {
+    @Schema(description = "User ID to grant permission to", required = true)
+    public UUID targetUserId;
     
-    @Schema(description = "Tenant ID for tenant-scoped permissions")
-    public UUID tenantId;
+    @Schema(description = "Resource ID to grant permission on", required = true)
+    public UUID resourceId;
+    
+    @Schema(description = "Permission ID to grant", required = true)
+    public UUID permissionId;
     
     @Schema(description = "Optional expiration date for the permission")
     public LocalDateTime expiresAt;
@@ -769,12 +1077,6 @@ class GrantRolePermissionRequest {
     @Schema(description = "Permission ID to grant", required = true)
     public UUID permissionId;
     
-    @Schema(description = "User ID who is granting the permission", required = true)
-    public UUID grantedBy;
-    
-    @Schema(description = "Tenant ID for tenant-scoped permissions")
-    public UUID tenantId;
-    
     @Schema(description = "Optional expiration date for the permission")
     public LocalDateTime expiresAt;
 }
@@ -790,14 +1092,23 @@ class RevokePermissionRequest {
     @Schema(description = "Permission ID to revoke", required = true)
     public UUID permissionId;
     
-    @Schema(description = "User ID who is revoking the permission", required = true)
-    public UUID revokedBy;
+    @Schema(description = "Reason for revoking the permission")
+    public String reason;
+}
+
+@Schema(description = "Simplified request to revoke a permission using current user context")
+class SimpleRevokePermissionRequest {
+    @Schema(description = "User ID to revoke permission from", required = true)
+    public UUID targetUserId;
+    
+    @Schema(description = "Resource ID to revoke permission on", required = true)
+    public UUID resourceId;
+    
+    @Schema(description = "Permission ID to revoke", required = true)
+    public UUID permissionId;
     
     @Schema(description = "Reason for revoking the permission")
     public String reason;
-    
-    @Schema(description = "Tenant ID for tenant-scoped permissions")
-    public UUID tenantId;
 }
 
 @Schema(description = "Request to share a resource with another user")
@@ -810,12 +1121,6 @@ class ShareResourceRequest {
     
     @Schema(description = "Role ID to assign to the user", required = true)
     public UUID roleId;
-    
-    @Schema(description = "User ID who is sharing the resource", required = true)
-    public UUID sharedBy;
-    
-    @Schema(description = "Tenant ID for tenant-scoped permissions")
-    public UUID tenantId;
 }
 
 @Schema(description = "Request to publish a resource for public access")
@@ -825,24 +1130,12 @@ class PublishResourceRequest {
     
     @Schema(description = "List of permission names to allow for public access", required = true)
     public List<String> permissionNames;
-    
-    @Schema(description = "User ID who is publishing the resource", required = true)
-    public UUID publishedBy;
-    
-    @Schema(description = "Tenant ID for tenant-scoped permissions")
-    public UUID tenantId;
 }
 
 @Schema(description = "Request to unpublish a resource (remove public access)")
 class UnpublishResourceRequest {
     @Schema(description = "Resource ID to unpublish", required = true)
     public UUID resourceId;
-    
-    @Schema(description = "User ID who is unpublishing the resource", required = true)
-    public UUID unpublishedBy;
-    
-    @Schema(description = "Tenant ID for tenant-scoped permissions")
-    public UUID tenantId;
 }
 
 @Schema(description = "Generic operation result")
