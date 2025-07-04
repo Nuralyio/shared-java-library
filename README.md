@@ -102,7 +102,7 @@ boolean hasAnyDocs = permissionClient.hasAnyAccessibleResources(
 
 ### Core ACL Capabilities
 - **Fine-grained permissions**: Custom permissions beyond CRUD (read, write, annotate, publish, share, moderate, etc.)
-- **Multi-scope permissions**: Application, Organization, and Resource level permissions
+- **Multi-scope permissions**: Application, Tenant, and Resource level permissions
 - **Role-based access control**: Hierarchical roles with inheritance
 - **Anonymous/Public access**: Public sharing with configurable permissions and expiration
 - **Delegation system**: Users can share resources with others using predefined roles
@@ -112,7 +112,7 @@ boolean hasAnyDocs = permissionClient.hasAnyAccessibleResources(
 
 ### PowerApps-Inspired Features
 - **Security roles**: Reusable permission bundles (Viewer, Editor, Publisher, Moderator)
-- **Custom permission sets**: Define organization-specific permissions
+- **Custom permission sets**: Define tenant-specific permissions
 - **Record-level access control**: Per-resource permission management
 - **Sharing policies**: Templates like "anyone with the link can view"
 - **Environment-level security**: Tenant-wide permission management

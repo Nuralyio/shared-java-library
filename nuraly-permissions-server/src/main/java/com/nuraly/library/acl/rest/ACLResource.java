@@ -7,6 +7,14 @@ import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.eclipse.microprofile.openapi.annotations.media.Content;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +26,7 @@ import java.util.UUID;
 @Path("/api/v1/acl")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@Tag(name = "ACL Management", description = "Access Control List operations for permissions, roles, and resource sharing")
 public class ACLResource {
     
     @Inject
@@ -126,7 +135,23 @@ public class ACLResource {
      */
     @POST
     @Path("/check-permission")
-    public Response checkPermission(PermissionCheckRequest request) {
+    @Operation(
+        summary = "Check user permission",
+        description = "Verify if a user has a specific permission on a resource"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Permission check completed",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = PermissionCheckResponse.class)
+            )
+        )
+    })
+    public Response checkPermission(
+        @Parameter(description = "Permission check request", required = true)
+        PermissionCheckRequest request) {
         try {
             boolean hasPermission = aclService.hasPermission(
                 request.userId, 
@@ -147,7 +172,23 @@ public class ACLResource {
      */
     @POST
     @Path("/check-anonymous-permission")
-    public Response checkAnonymousPermission(AnonymousPermissionCheckRequest request) {
+    @Operation(
+        summary = "Check anonymous access",
+        description = "Verify if anonymous access is allowed for a specific permission on a resource"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Anonymous permission check completed",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = PermissionCheckResponse.class)
+            )
+        )
+    })
+    public Response checkAnonymousPermission(
+        @Parameter(description = "Anonymous permission check request", required = true)
+        AnonymousPermissionCheckRequest request) {
         try {
             boolean hasPermission = aclService.hasAnonymousPermission(
                 request.resourceId, 
@@ -167,7 +208,31 @@ public class ACLResource {
      */
     @POST
     @Path("/grant-permission")
-    public Response grantPermission(GrantPermissionRequest request) {
+    @Operation(
+        summary = "Grant permission",
+        description = "Grant a specific permission to a user on a resource"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Permission granted successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = ResourceGrant.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions to grant access"
+        )
+    })
+    public Response grantPermission(
+        @Parameter(description = "Grant permission request", required = true)
+        GrantPermissionRequest request) {
         try {
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
@@ -199,7 +264,31 @@ public class ACLResource {
      */
     @POST
     @Path("/grant-role-permission")
-    public Response grantRolePermission(GrantRolePermissionRequest request) {
+    @Operation(
+        summary = "Grant role-based permission",
+        description = "Grant a permission to a role on a resource"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Permission granted successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = ResourceGrant.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions to grant access"
+        )
+    })
+    public Response grantRolePermission(
+        @Parameter(description = "Grant role permission request", required = true)
+        GrantRolePermissionRequest request) {
         try {
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
@@ -230,7 +319,31 @@ public class ACLResource {
      */
     @POST
     @Path("/revoke-permission")
-    public Response revokePermission(RevokePermissionRequest request) {
+    @Operation(
+        summary = "Revoke permission",
+        description = "Revoke a specific permission from a user on a resource"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Permission revoke operation completed",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = OperationResult.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions to revoke access"
+        )
+    })
+    public Response revokePermission(
+        @Parameter(description = "Revoke permission request", required = true)
+        RevokePermissionRequest request) {
         try {
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
@@ -262,7 +375,31 @@ public class ACLResource {
      */
     @POST
     @Path("/share-resource")
-    public Response shareResource(ShareResourceRequest request) {
+    @Operation(
+        summary = "Share resource",
+        description = "Share a resource with another user by granting them a specific role"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Resource shared successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = ResourceGrant.class, type = SchemaType.ARRAY)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions to share resource"
+        )
+    })
+    public Response shareResource(
+        @Parameter(description = "Share resource request", required = true)
+        ShareResourceRequest request) {
         try {
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
@@ -293,7 +430,31 @@ public class ACLResource {
      */
     @POST
     @Path("/publish-resource")
-    public Response publishResource(PublishResourceRequest request) {
+    @Operation(
+        summary = "Publish resource",
+        description = "Make a resource publicly accessible with specified permissions"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Resource published successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = OperationResult.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions to publish resource"
+        )
+    })
+    public Response publishResource(
+        @Parameter(description = "Publish resource request", required = true)
+        PublishResourceRequest request) {
         try {
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
@@ -323,7 +484,31 @@ public class ACLResource {
      */
     @POST
     @Path("/unpublish-resource")
-    public Response unpublishResource(UnpublishResourceRequest request) {
+    @Operation(
+        summary = "Unpublish resource",
+        description = "Remove public access from a resource"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Resource unpublished successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = OperationResult.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions to unpublish resource"
+        )
+    })
+    public Response unpublishResource(
+        @Parameter(description = "Unpublish resource request", required = true)
+        UnpublishResourceRequest request) {
         try {
             // Validate resource exists
             Response validationError = validateResourceExists(request.resourceId);
@@ -352,8 +537,29 @@ public class ACLResource {
      */
     @GET
     @Path("/accessible-resources/{userId}")
-    public Response getAccessibleResources(@PathParam("userId") UUID userId, 
-                                         @QueryParam("tenantId") UUID tenantId) {
+    @Operation(
+        summary = "Get accessible resources",
+        description = "Retrieve all resources that a user has access to within a tenant"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Accessible resources retrieved successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = Resource.class, type = SchemaType.ARRAY)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - invalid parameters"
+        )
+    })
+    public Response getAccessibleResources(
+        @Parameter(description = "User ID", required = true)
+        @PathParam("userId") UUID userId, 
+        @Parameter(description = "Tenant ID for filtering resources")
+        @QueryParam("tenantId") UUID tenantId) {
         try {
             List<Resource> resources = aclService.getAccessibleResources(userId, tenantId);
             return Response.ok(resources).build();
@@ -368,6 +574,24 @@ public class ACLResource {
      */
     @GET
     @Path("/public-resources")
+    @Operation(
+        summary = "Get public resources",
+        description = "Retrieve all resources that are publicly accessible"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Public resources retrieved successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = Resource.class, type = SchemaType.ARRAY)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - server error"
+        )
+    })
     public Response getPublicResources() {
         try {
             List<Resource> resources = aclService.getPublicResources();
@@ -383,8 +607,29 @@ public class ACLResource {
      */
     @GET
     @Path("/validate-public-link/{token}")
-    public Response validatePublicLink(@PathParam("token") String token,
-                                     @QueryParam("permission") String permissionName) {
+    @Operation(
+        summary = "Validate public link",
+        description = "Validate if a public link token is valid for accessing a resource with specific permissions"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Public link validation completed",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = OperationResult.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - invalid token or parameters"
+        )
+    })
+    public Response validatePublicLink(
+        @Parameter(description = "Public link token", required = true)
+        @PathParam("token") String token,
+        @Parameter(description = "Permission name to validate")
+        @QueryParam("permission") String permissionName) {
         try {
             boolean isValid = aclService.validatePublicLink(token, permissionName);
             return Response.ok(new OperationResult(isValid, isValid ? "Valid public link" : "Invalid public link")).build();
@@ -399,7 +644,35 @@ public class ACLResource {
      */
     @GET
     @Path("/public-resource/{token}")
-    public Response getPublicResource(@PathParam("token") String token) {
+    @Operation(
+        summary = "Get public resource",
+        description = "Retrieve a resource using a public access token for anonymous access"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Public resource retrieved successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = Resource.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "404",
+            description = "Public resource not found or expired",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = ErrorResponse.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - invalid token"
+        )
+    })
+    public Response getPublicResource(
+        @Parameter(description = "Public access token", required = true)
+        @PathParam("token") String token) {
         try {
             Resource resource = Resource.findByPublicToken(token);
             if (resource != null && resource.isPublicLinkValid()) {
@@ -417,21 +690,39 @@ public class ACLResource {
 
 // Request/Response DTOs
 
+@Schema(description = "Request to check if a user has a specific permission on a resource")
 class PermissionCheckRequest {
+    @Schema(description = "User ID to check permission for", required = true)
     public UUID userId;
+    
+    @Schema(description = "Resource ID to check permission on", required = true)
     public UUID resourceId;
+    
+    @Schema(description = "Permission name to check", required = true, example = "read")
     public String permissionName;
+    
+    @Schema(description = "Tenant ID for tenant-scoped permissions")
     public UUID tenantId;
 }
 
+@Schema(description = "Request to check anonymous access to a resource")
 class AnonymousPermissionCheckRequest {
+    @Schema(description = "Resource ID to check permission on", required = true)
     public UUID resourceId;
+    
+    @Schema(description = "Permission name to check", required = true, example = "read")
     public String permissionName;
+    
+    @Schema(description = "Tenant ID for tenant-scoped permissions")
     public UUID tenantId;
 }
 
+@Schema(description = "Response containing permission check result")
 class PermissionCheckResponse {
+    @Schema(description = "Whether the user has the requested permission")
     public boolean hasPermission;
+    
+    @Schema(description = "Error message if permission check failed")
     public String errorMessage;
     
     public PermissionCheckResponse() {}
@@ -442,56 +733,120 @@ class PermissionCheckResponse {
     }
 }
 
+@Schema(description = "Request to grant a permission to a user on a resource")
 class GrantPermissionRequest {
+    @Schema(description = "User ID to grant permission to", required = true)
     public UUID userId;
+    
+    @Schema(description = "Resource ID to grant permission on", required = true)
     public UUID resourceId;
+    
+    @Schema(description = "Permission ID to grant", required = true)
     public UUID permissionId;
+    
+    @Schema(description = "User ID who is granting the permission", required = true)
     public UUID grantedBy;
+    
+    @Schema(description = "Tenant ID for tenant-scoped permissions")
     public UUID tenantId;
+    
+    @Schema(description = "Optional expiration date for the permission")
     public LocalDateTime expiresAt;
 }
 
+@Schema(description = "Request to grant a permission to a role on a resource")
 class GrantRolePermissionRequest {
+    @Schema(description = "Role ID to grant permission to", required = true)
     public UUID roleId;
+    
+    @Schema(description = "Resource ID to grant permission on", required = true)
     public UUID resourceId;
+    
+    @Schema(description = "Permission ID to grant", required = true)
     public UUID permissionId;
+    
+    @Schema(description = "User ID who is granting the permission", required = true)
     public UUID grantedBy;
+    
+    @Schema(description = "Tenant ID for tenant-scoped permissions")
     public UUID tenantId;
+    
+    @Schema(description = "Optional expiration date for the permission")
     public LocalDateTime expiresAt;
 }
 
+@Schema(description = "Request to revoke a permission from a user on a resource")
 class RevokePermissionRequest {
+    @Schema(description = "User ID to revoke permission from", required = true)
     public UUID userId;
+    
+    @Schema(description = "Resource ID to revoke permission on", required = true)
     public UUID resourceId;
+    
+    @Schema(description = "Permission ID to revoke", required = true)
     public UUID permissionId;
+    
+    @Schema(description = "User ID who is revoking the permission", required = true)
     public UUID revokedBy;
+    
+    @Schema(description = "Reason for revoking the permission")
     public String reason;
+    
+    @Schema(description = "Tenant ID for tenant-scoped permissions")
     public UUID tenantId;
 }
 
+@Schema(description = "Request to share a resource with another user")
 class ShareResourceRequest {
+    @Schema(description = "Resource ID to share", required = true)
     public UUID resourceId;
+    
+    @Schema(description = "User ID to share the resource with", required = true)
     public UUID targetUserId;
+    
+    @Schema(description = "Role ID to assign to the user", required = true)
     public UUID roleId;
+    
+    @Schema(description = "User ID who is sharing the resource", required = true)
     public UUID sharedBy;
+    
+    @Schema(description = "Tenant ID for tenant-scoped permissions")
     public UUID tenantId;
 }
 
+@Schema(description = "Request to publish a resource for public access")
 class PublishResourceRequest {
+    @Schema(description = "Resource ID to publish", required = true)
     public UUID resourceId;
+    
+    @Schema(description = "List of permission names to allow for public access", required = true)
     public List<String> permissionNames;
+    
+    @Schema(description = "User ID who is publishing the resource", required = true)
     public UUID publishedBy;
+    
+    @Schema(description = "Tenant ID for tenant-scoped permissions")
     public UUID tenantId;
 }
 
+@Schema(description = "Request to unpublish a resource (remove public access)")
 class UnpublishResourceRequest {
+    @Schema(description = "Resource ID to unpublish", required = true)
     public UUID resourceId;
+    
+    @Schema(description = "User ID who is unpublishing the resource", required = true)
     public UUID unpublishedBy;
+    
+    @Schema(description = "Tenant ID for tenant-scoped permissions")
     public UUID tenantId;
 }
 
+@Schema(description = "Generic operation result")
 class OperationResult {
+    @Schema(description = "Whether the operation was successful")
     public boolean success;
+    
+    @Schema(description = "Message describing the operation result")
     public String message;
     
     public OperationResult() {}
@@ -502,7 +857,9 @@ class OperationResult {
     }
 }
 
+@Schema(description = "Error response")
 class ErrorResponse {
+    @Schema(description = "Error message")
     public String error;
     
     public ErrorResponse() {}
