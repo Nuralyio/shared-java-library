@@ -28,7 +28,7 @@ public class Resource extends PanacheEntityBase {
     
     @NotBlank
     @Column(name = "resource_type")
-    public String resourceType; // e.g., "document", "dashboard", "function", "organization"
+    public String resourceType; // e.g., "document", "dashboard", "function"
     
     @Column(name = "external_id")
     public String externalId; // Reference to the actual resource in other systems
@@ -38,9 +38,6 @@ public class Resource extends PanacheEntityBase {
     
     @Column(name = "owner_id")
     public UUID ownerId; // External User ID who owns this resource
-    
-    @Column(name = "organization_id")
-    public UUID organizationId; // Organization this resource belongs to
     
     // Self-referencing relationship for hierarchical resources
     @ManyToOne(fetch = FetchType.LAZY)
@@ -101,10 +98,6 @@ public class Resource extends PanacheEntityBase {
     
     public static List<Resource> findByOwner(UUID ownerId) {
         return find("ownerId", ownerId).list();
-    }
-    
-    public static List<Resource> findByOrganization(UUID organizationId) {
-        return find("organizationId", organizationId).list();
     }
     
     public static List<Resource> findByTenant(UUID externalTenantId) {

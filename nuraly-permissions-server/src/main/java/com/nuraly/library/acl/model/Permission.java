@@ -28,7 +28,7 @@ public class Permission extends PanacheEntityBase {
     public String description;
     
     @Column(name = "resource_type")
-    public String resourceType; // e.g., "document", "dashboard", "function", "organization"
+    public String resourceType; // e.g., "document", "dashboard", "function"
     
     @Column(name = "is_system_permission")
     public Boolean isSystemPermission = false; // Built-in vs custom permissions

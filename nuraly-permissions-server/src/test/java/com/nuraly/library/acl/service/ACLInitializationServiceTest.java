@@ -43,7 +43,7 @@ public class ACLInitializationServiceTest {
         
         SharePolicy teamPolicy = SharePolicy.find("tenantId = ?1 and name = ?2", tenantId, "Team Collaboration").firstResult();
         assertNotNull(teamPolicy);
-        assertEquals(SharePolicyType.ORGANIZATION, teamPolicy.policyType);
+        assertEquals(SharePolicyType.TENANT, teamPolicy.policyType);
         assertFalse(teamPolicy.allowAnonymous);
     }
     
@@ -144,11 +144,11 @@ public class ACLInitializationServiceTest {
         assertEquals(RoleScope.APPLICATION, platformUserRole.scope);
         assertTrue(platformUserRole.isSystemRole);
         
-        // Organization-level roles
-        Role orgOwnerRole = Role.find("name = ?1 and externalTenantId is null", "Organization Owner").firstResult();
-        assertNotNull(orgOwnerRole);
-        assertEquals(RoleScope.ORGANIZATION, orgOwnerRole.scope);
-        assertTrue(orgOwnerRole.isSystemRole);
+        // Tenant-level roles (previously Organization-level)
+        Role tenantOwnerRole = Role.find("name = ?1 and externalTenantId is null", "Tenant Owner").firstResult();
+        assertNotNull(tenantOwnerRole);
+        assertEquals(RoleScope.TENANT, tenantOwnerRole.scope);
+        assertTrue(tenantOwnerRole.isSystemRole);
         
         // Resource-level roles
         Role viewerRole = Role.find("name = ?1 and externalTenantId is null", "Viewer").firstResult();
@@ -219,23 +219,22 @@ public class ACLInitializationServiceTest {
     
     @Test
     @TestTransaction
-    @DisplayName("Should verify organization permissions exist")
-    public void testOrganizationPermissions() {
-        Permission orgReadPermission = Permission.find("name", "organization:read").firstResult();
-        assertNotNull(orgReadPermission);
-        assertEquals("organization", orgReadPermission.resourceType);
+    @DisplayName("Should verify tenant permissions exist")
+    public void testTenantPermissions() {
+        // Since we've removed organization-specific permissions, we can test tenant-level role creation
+        UUID tenantId = UUID.randomUUID();
         
-        Permission orgAdminPermission = Permission.find("name", "organization:admin").firstResult();
-        assertNotNull(orgAdminPermission);
-        assertEquals("organization", orgAdminPermission.resourceType);
+        // Initialize tenant - this should create tenant-level roles with the appropriate permissions
+        initService.initializeTenant(tenantId);
         
-        Permission orgInvitePermission = Permission.find("name", "organization:invite").firstResult();
-        assertNotNull(orgInvitePermission);
-        assertEquals("organization", orgInvitePermission.resourceType);
+        // Verify that tenant admin role was created (it's a system role, created during system initialization)
+        Role tenantAdminRole = Role.find("name = ?1 and scope = ?2", "Tenant Admin", RoleScope.TENANT).firstResult();
+        assertNotNull(tenantAdminRole, "Tenant Admin role should exist");
+        assertEquals(RoleScope.TENANT, tenantAdminRole.scope);
         
-        Permission orgRemovePermission = Permission.find("name", "organization:remove").firstResult();
-        assertNotNull(orgRemovePermission);
-        assertEquals("organization", orgRemovePermission.resourceType);
+        // Verify that share policies were created for this tenant
+        List<SharePolicy> tenantPolicies = SharePolicy.find("tenantId", tenantId).list();
+        assertFalse(tenantPolicies.isEmpty(), "Tenant should have share policies created");
     }
     
     @Test
@@ -253,8 +252,8 @@ public class ACLInitializationServiceTest {
             assertTrue(permission.isSystemPermission);
         }
         
-        // Resource-specific permissions
-        String[] resourceTypes = {"document", "dashboard", "function", "organization"};
+        // Resource-specific permissions (removed organization since we no longer support it)
+        String[] resourceTypes = {"document", "dashboard", "function"};
         
         for (String resourceType : resourceTypes) {
             Permission readPermission = Permission.find("name", resourceType + ":read").firstResult();

@@ -64,12 +64,12 @@ public class ACLInitializationService {
         createPermissionIfNotExists("execute", "Execute functions", "function", true);
         createPermissionIfNotExists("deploy", "Deploy functions", "function", true);
         
-        // Organization-specific permissions
-        createPermissionIfNotExists("read", "View organization details", "organization", true);
-        createPermissionIfNotExists("write", "Edit organization settings", "organization", true);
-        createPermissionIfNotExists("admin", "Administer organization", "organization", true);
-        createPermissionIfNotExists("invite", "Invite members to organization", "organization", true);
-        createPermissionIfNotExists("remove", "Remove members from organization", "organization", true);
+        // Tenant-specific permissions (previously organization-specific)
+        createPermissionIfNotExists("read", "View tenant details", "tenant", true);
+        createPermissionIfNotExists("write", "Edit tenant settings", "tenant", true);
+        createPermissionIfNotExists("admin", "Administer tenant", "tenant", true);
+        createPermissionIfNotExists("invite", "Invite members to tenant", "tenant", true);
+        createPermissionIfNotExists("remove", "Remove members from tenant", "tenant", true);
         
         System.out.println("System permissions created successfully");
     }
@@ -91,29 +91,29 @@ public class ACLInitializationService {
             addPermissionsToRole(platformUser, "read");
         }
         
-        // Organization-level roles
-        Role orgOwner = createRoleIfNotExists("Organization Owner", "Organization owner with full access", 
-                                             null, RoleScope.ORGANIZATION, true);
-        if (orgOwner != null) {
-            addPermissionsToRole(orgOwner, "admin", "read", "write", "delete", "share", "publish", "moderate", "invite", "remove");
+        // Tenant-level roles (previously organization-level)
+        Role tenantOwner = createRoleIfNotExists("Tenant Owner", "Tenant owner with full access", 
+                                             null, RoleScope.TENANT, true);
+        if (tenantOwner != null) {
+            addPermissionsToRole(tenantOwner, "admin", "read", "write", "delete", "share", "publish", "moderate", "invite", "remove");
         }
         
-        Role orgAdmin = createRoleIfNotExists("Organization Admin", "Organization administrator", 
-                                             null, RoleScope.ORGANIZATION, true);
-        if (orgAdmin != null) {
-            addPermissionsToRole(orgAdmin, "read", "write", "share", "publish", "moderate", "invite");
+        Role tenantAdmin = createRoleIfNotExists("Tenant Admin", "Tenant administrator", 
+                                             null, RoleScope.TENANT, true);
+        if (tenantAdmin != null) {
+            addPermissionsToRole(tenantAdmin, "read", "write", "share", "publish", "moderate", "invite");
         }
         
-        Role orgMember = createRoleIfNotExists("Organization Member", "Regular organization member", 
-                                              null, RoleScope.ORGANIZATION, true);
-        if (orgMember != null) {
-            addPermissionsToRole(orgMember, "read", "write", "share");
+        Role tenantMember = createRoleIfNotExists("Tenant Member", "Regular tenant member", 
+                                              null, RoleScope.TENANT, true);
+        if (tenantMember != null) {
+            addPermissionsToRole(tenantMember, "read", "write", "share");
         }
         
-        Role orgGuest = createRoleIfNotExists("Organization Guest", "Guest with limited access", 
-                                             null, RoleScope.ORGANIZATION, true);
-        if (orgGuest != null) {
-            addPermissionsToRole(orgGuest, "read");
+        Role tenantGuest = createRoleIfNotExists("Tenant Guest", "Guest with limited access", 
+                                             null, RoleScope.TENANT, true);
+        if (tenantGuest != null) {
+            addPermissionsToRole(tenantGuest, "read");
         }
         
         // Resource-level roles

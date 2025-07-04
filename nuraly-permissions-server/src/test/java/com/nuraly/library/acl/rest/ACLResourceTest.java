@@ -33,7 +33,6 @@ public class ACLResourceTest {
     private UUID resourceId;
     private UUID permissionId;
     private UUID roleId;
-    private UUID organizationId;
     
     @Transactional
     public void setupTestDataAndCommit() {
@@ -43,14 +42,6 @@ public class ACLResourceTest {
         
         // Use external user ID instead of creating User entity
         userId = UUID.randomUUID();
-        
-        // Create organization with unique name (let Hibernate generate the ID)
-        Organization org = new Organization();
-        org.name = "Test Organization " + uniqueId;
-        org.externalTenantId = tenantId;
-        org.ownerId = userId;
-        org.persistAndFlush();
-        organizationId = org.id;
         
         // Create permission with unique name (let Hibernate generate the ID)
         Permission permission = Permission.findByName("read");
@@ -81,7 +72,6 @@ public class ACLResourceTest {
         resource.resourceType = "document";
         resource.externalTenantId = tenantId;
         resource.ownerId = userId;
-        resource.organizationId = organizationId;
         resource.persistAndFlush();
         resourceId = resource.id;
         

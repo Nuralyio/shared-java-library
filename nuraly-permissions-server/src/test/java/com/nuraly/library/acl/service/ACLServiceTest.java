@@ -32,7 +32,6 @@ public class ACLServiceTest {
     private UUID resourceId;
     private UUID permissionId;
     private UUID roleId;
-    private UUID organizationId;
     
     @BeforeEach
     public void setup() {
@@ -40,7 +39,6 @@ public class ACLServiceTest {
         tenantId = UUID.randomUUID();
         userId = UUID.randomUUID();
         resourceId = UUID.randomUUID();
-        organizationId = UUID.randomUUID();
         
         // Find system permission (created during app initialization)
         Permission permission = Permission.findByName("read");
@@ -60,14 +58,6 @@ public class ACLServiceTest {
         
         // Use external user ID instead of creating User entity
         userId = UUID.randomUUID(); // Update the test ID
-        
-        // Create test organization and persist it
-        Organization org = new Organization();
-        org.name = "Test Organization " + uniqueId;
-        org.externalTenantId = tenantId;
-        org.ownerId = userId;
-        org.persistAndFlush(); // Persist to get the generated ID
-        organizationId = org.id; // Update the test ID with the generated one
         
         // Use existing system permission or create one
         Permission permission = Permission.findByName("read");
@@ -97,7 +87,6 @@ public class ACLServiceTest {
         resource.resourceType = "document";
         resource.externalTenantId = tenantId;
         resource.ownerId = userId;
-        resource.organizationId = organizationId;
         resource.persistAndFlush(); // Persist to get the generated ID
         resourceId = resource.id; // Update the test ID with the generated one
     }
@@ -112,13 +101,6 @@ public class ACLServiceTest {
         
         // Create test user using external user ID
         UUID testUserId = UUID.randomUUID();
-        
-        // Create test organization
-        Organization org = new Organization();
-        org.name = "Test Organization " + uniqueId;
-        org.externalTenantId = testTenantId;
-        org.ownerId = testUserId;
-        org.persistAndFlush(); // Persist organization first
         
         // Get or create read permission
         Permission permission = Permission.findByName("read");
@@ -136,7 +118,6 @@ public class ACLServiceTest {
         resource.resourceType = "document";
         resource.externalTenantId = testTenantId;
         resource.ownerId = testUserId;
-        resource.organizationId = org.id;
         resource.persistAndFlush(); // Make sure to persist the resource
         
         // When
@@ -223,14 +204,14 @@ public class ACLServiceTest {
         // Create user with role assignment through organization membership
         UUID otherUserId = UUID.randomUUID();
         
-        // Create organization membership for the other user with the role
-        OrganizationMembership membership = new OrganizationMembership();
-        membership.organization = Organization.findById(organizationId);
-        membership.externalUserId = otherUserId;
-        membership.role = Role.findById(roleId);
-        membership.externalTenantId = tenantId;
-        membership.isActive = true;
-        membership.persistAndFlush();
+        // Create user role assignment for the other user with the role
+        UserRole userRole = new UserRole();
+        userRole.externalUserId = otherUserId;
+        userRole.role = Role.findById(roleId);
+        userRole.externalTenantId = tenantId;
+        userRole.assignedBy = userId;
+        userRole.isActive = true;
+        userRole.persistAndFlush();
         
         // When - grant role permission to resource
         ResourceGrant grant = aclService.grantRolePermission(
@@ -333,7 +314,6 @@ public class ACLServiceTest {
         additionalResource.resourceType = "document";
         additionalResource.externalTenantId = tenantId;
         additionalResource.ownerId = UUID.randomUUID(); // Different owner
-        additionalResource.organizationId = organizationId;
         additionalResource.persist();
         UUID additionalResourceId = additionalResource.id;
         
@@ -396,21 +376,22 @@ public class ACLServiceTest {
     
     @Test
     @TestTransaction
-    @DisplayName("Should handle organization membership permissions")
-    public void testOrganizationMembershipPermissions() {
+    @DisplayName("Should handle tenant-level role permissions")
+    public void testTenantRolePermissions() {
         // Given - setup test data first
         setupTestDataAndCommit();
         
         // Given - create organization membership with role
-        OrganizationMembership membership = new OrganizationMembership();
-        membership.externalUserId = userId;
-        membership.organization = Organization.findById(organizationId);
-        membership.role = Role.findById(roleId);
-        membership.membershipType = MembershipType.MEMBER;
-        membership.externalTenantId = tenantId;
-        membership.persist();
+        // Create user role assignment for tenant-level access
+        UserRole userRole = new UserRole();
+        userRole.externalUserId = userId;
+        userRole.role = Role.findById(roleId);
+        userRole.externalTenantId = tenantId;
+        userRole.assignedBy = userId;
+        userRole.isActive = true;
+        userRole.persist();
         
-        // When - check access through organization membership
+        // When - check access through role assignment
         boolean hasAccess = aclService.hasPermission(userId, resourceId, "read", tenantId);
         
         // Then - should have access through organization membership

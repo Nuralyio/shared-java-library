@@ -2,7 +2,7 @@ package com.nuraly.library.acl.model;
 
 public enum SharePolicyType {
     PUBLIC_LINK,        // Shareable link access
-    ORGANIZATION,       // Organization-wide access
+    TENANT,            // Tenant-wide access
     TEAM,              // Team-based access
     INDIVIDUAL,        // Individual user access
     ANONYMOUS,         // Anonymous access

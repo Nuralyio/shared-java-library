@@ -260,11 +260,14 @@ public class ACLService {
             .map(g -> g.resource.id)
             .collect(Collectors.toSet()));
         
-        // Resources through organization membership
-        List<OrganizationMembership> memberships = OrganizationMembership.findActiveByExternalUser(userId);
-        for (OrganizationMembership membership : memberships) {
-            List<Resource> orgResources = Resource.findByOrganization(membership.organization.id);
-            accessibleResourceIds.addAll(orgResources.stream().map(r -> r.id).collect(Collectors.toSet()));
+        // Resources through role-based access (tenant-scoped)
+        List<UserRole> userRoles = UserRole.findActiveByExternalUser(userId);
+        for (UserRole userRole : userRoles) {
+            // If user has tenant-scoped roles, they can access tenant resources based on role permissions
+            if (userRole.externalTenantId != null) {
+                List<Resource> tenantResources = Resource.findByTenant(userRole.externalTenantId);
+                accessibleResourceIds.addAll(tenantResources.stream().map(r -> r.id).collect(Collectors.toSet()));
+            }
         }
         
         // Fetch all accessible resources
@@ -319,13 +322,11 @@ public class ACLService {
             }
         }
         
-        // Check organization-level access
-        List<OrganizationMembership> memberships = OrganizationMembership.findActiveByExternalUser(userId);
-        for (OrganizationMembership membership : memberships) {
-            if (membership.organization.id.equals(resource.organizationId)) {
-                if (membership.role != null && membership.role.getAllPermissions().contains(permission)) {
-                    return true;
-                }
+        // Check role-based access (tenant-scoped)
+        List<UserRole> userRoles = UserRole.findActiveByExternalUserAndTenant(userId, tenantId);
+        for (UserRole userRole : userRoles) {
+            if (userRole.role != null && userRole.role.getAllPermissions().contains(permission)) {
+                return true;
             }
         }
         

@@ -93,7 +93,6 @@ public class ACLModelTest {
         // Given
         UUID tenantId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
-        UUID organizationId = UUID.randomUUID();
         
         Resource resource = new Resource();
         resource.name = "Test Resource";
@@ -101,7 +100,6 @@ public class ACLModelTest {
         resource.resourceType = "document";
         resource.externalTenantId = tenantId;
         resource.ownerId = ownerId;
-        resource.organizationId = organizationId;
         resource.isPublic = false;
         resource.isActive = true;
         
@@ -119,40 +117,8 @@ public class ACLModelTest {
         assertEquals("document", foundResource.resourceType);
         assertEquals(tenantId, foundResource.externalTenantId);
         assertEquals(ownerId, foundResource.ownerId);
-        assertEquals(organizationId, foundResource.organizationId);
         assertFalse(foundResource.isPublic);
         assertTrue(foundResource.isActive);
-    }
-    
-    @Test
-    @TestTransaction
-    @DisplayName("Should create and persist Organization entity")
-    public void testOrganizationEntity() {
-        // Given
-        UUID tenantId = UUID.randomUUID();
-        UUID ownerId = UUID.randomUUID();
-        
-        Organization organization = new Organization();
-        organization.name = "Test Organization";
-        organization.description = "Test organization description";
-        organization.externalTenantId = tenantId;
-        organization.ownerId = ownerId;
-        organization.isActive = true;
-        
-        // When
-        organization.persist();
-        
-        // Then
-        assertNotNull(organization.id);
-        assertNotNull(organization.createdAt);
-        assertNotNull(organization.updatedAt);
-        
-        Organization foundOrg = Organization.findById(organization.id);
-        assertNotNull(foundOrg);
-        assertEquals("Test Organization", foundOrg.name);
-        assertEquals(tenantId, foundOrg.externalTenantId);
-        assertEquals(ownerId, foundOrg.ownerId);
-        assertTrue(foundOrg.isActive);
     }
     
     @Test
@@ -235,53 +201,6 @@ public class ACLModelTest {
         
         // When/Then
         assertFalse(grant.isValid());
-    }
-    
-    @Test
-    @TestTransaction
-    @DisplayName("Should create and persist OrganizationMembership entity")
-    public void testOrganizationMembershipEntity() {
-        // Given - create dependencies
-        UUID tenantId = UUID.randomUUID();
-        UUID externalUserId = UUID.randomUUID();
-        
-        Organization organization = new Organization();
-        organization.name = "Test Organization";
-        organization.externalTenantId = tenantId;
-        organization.ownerId = externalUserId;
-        organization.persist();
-        
-        Role role = new Role();
-        role.name = "Member";
-        role.description = "Organization member";
-        role.externalTenantId = tenantId;
-        role.scope = RoleScope.ORGANIZATION;
-        role.persist();
-        
-        // Create membership
-        OrganizationMembership membership = new OrganizationMembership();
-        membership.externalUserId = externalUserId;
-        membership.organization = organization;
-        membership.role = role;
-        membership.membershipType = MembershipType.MEMBER;
-        membership.externalTenantId = tenantId;
-        membership.isActive = true;
-        
-        // When
-        membership.persist();
-        
-        // Then
-        assertNotNull(membership.id);
-        assertNotNull(membership.joinedAt);
-        assertTrue(membership.isActive);
-        
-        OrganizationMembership foundMembership = OrganizationMembership.findById(membership.id);
-        assertNotNull(foundMembership);
-        assertEquals(externalUserId, foundMembership.externalUserId);
-        assertEquals(organization.id, foundMembership.organization.id);
-        assertEquals(role.id, foundMembership.role.id);
-        assertEquals(MembershipType.MEMBER, foundMembership.membershipType);
-        assertEquals(tenantId, foundMembership.externalTenantId);
     }
     
     @Test

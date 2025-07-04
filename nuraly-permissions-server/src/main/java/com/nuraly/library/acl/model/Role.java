@@ -31,7 +31,7 @@ public class Role extends PanacheEntityBase {
     public UUID externalTenantId;
     
     @Enumerated(EnumType.STRING)
-    public RoleScope scope; // APPLICATION, ORGANIZATION, RESOURCE
+    public RoleScope scope; // APPLICATION, TENANT, RESOURCE
     
     @Column(name = "is_system_role")
     public Boolean isSystemRole = false; // Built-in roles vs custom roles

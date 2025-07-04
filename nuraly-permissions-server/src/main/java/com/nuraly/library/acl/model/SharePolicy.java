@@ -129,9 +129,9 @@ public class SharePolicy extends PanacheEntityBase {
         // Team Collaboration policy
         SharePolicy teamCollab = new SharePolicy();
         teamCollab.name = "Team Collaboration";
-        teamCollab.description = "Organization members can edit and share";
+        teamCollab.description = "Tenant members can edit and share";
         teamCollab.tenantId = tenantId;
-        teamCollab.policyType = SharePolicyType.ORGANIZATION;
+        teamCollab.policyType = SharePolicyType.TENANT;
         teamCollab.accessLevel = AccessLevel.FULL_ACCESS;
         teamCollab.permissions = "[\"read\", \"write\", \"share\", \"annotate\"]";
         teamCollab.requireAuthentication = true;

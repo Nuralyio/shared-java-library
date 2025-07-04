@@ -7,8 +7,8 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * UserRole entity representing user-role assignments
- * Links external users to ACL roles
+ * UserRole entity representing user role assignments within tenants
+ * Replaces organization-based membership with direct tenant-scoped role assignments
  */
 @Entity
 @Table(name = "acl_user_roles")
@@ -24,6 +24,9 @@ public class UserRole extends PanacheEntityBase {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
     public Role role;
+    
+    @Column(name = "external_tenant_id")
+    public UUID externalTenantId;
     
     @Column(name = "assigned_by")
     public UUID assignedBy; // External User ID who assigned this role
@@ -63,5 +66,14 @@ public class UserRole extends PanacheEntityBase {
     
     public static List<UserRole> findByExternalUserAndRole(UUID externalUserId, UUID roleId) {
         return find("externalUserId = ?1 and role.id = ?2", externalUserId, roleId).list();
+    }
+    
+    public static List<UserRole> findByTenant(UUID externalTenantId) {
+        return find("externalTenantId", externalTenantId).list();
+    }
+    
+    public static List<UserRole> findActiveByExternalUserAndTenant(UUID externalUserId, UUID externalTenantId) {
+        return find("externalUserId = ?1 and externalTenantId = ?2 and isActive = true", 
+                   externalUserId, externalTenantId).list();
     }
 }
