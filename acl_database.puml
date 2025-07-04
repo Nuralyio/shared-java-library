@@ -4,7 +4,7 @@
 skinparam backgroundColor white
 skinparam roundcorner 10
 
-title ACL System Database Schema
+title ACL System Database Schema & API Architecture
 
 entity "Resource" as resource {
     * id : UUID <<PK>>
@@ -87,6 +87,31 @@ role ||--o{ grant : "enables"
 role ||--o{ userRole : "assigned to user"
 role ||--o{ rolePermission : "has permissions"
 
+' Service Layer Components
+package "Service Layer" {
+    component "ACLResource" as aclResource {
+        + All REST endpoints
+        + Uses UserContextService
+        + Context-aware operations
+    }
+    
+    component "UserContextService" as userContextService {
+        + getCurrentUserId()
+        + getCurrentTenantId()
+        + isAuthenticated()
+        + X-USER header parsing
+    }
+    
+    component "ACLService" as aclService {
+        + Business logic
+        + Permission checking
+        + Resource management
+    }
+}
+
+aclResource --> userContextService : "injects"
+aclResource --> aclService : "uses"
+
 note as N1
     **Grant Types:**
     • DIRECT: Direct user permission
@@ -97,11 +122,13 @@ end note
 
 note as N2
     **Key Constraints:**
-    • externalTenantId isolation enforced
+    • externalTenantId isolation enforced via headers
     • Soft deletes via isActive flags
     • Audit trail with timestamps
     • Owner always has full access
     • Users managed by external system
+    • Authentication via X-USER header (JSON format)
+    • Tenant context via X-TENANT-ID header
 end note
 
 note as N3
@@ -110,6 +137,26 @@ note as N3
     • Custom tenant-specific permissions
     • Role-based permission inheritance
     • Explicit grant/revoke tracking
+    • Context-aware operations using authenticated user
+end note
+
+note as N4
+    **API Context Model:**
+    • All operations use authenticated user from headers
+    • UserContextService centralizes context extraction
+    • X-USER header: JSON format {"uuid": "user-id"}
+    • X-TENANT-ID header: Tenant isolation
+    • No user IDs required in request bodies/paths
+end note
+
+note as N5
+    **Updated Endpoints:**
+    • GET /accessible-resources (no userId param)
+    • POST /grant (uses current user context)
+    • POST /revoke (uses current user context)
+    • POST /share-resource (uses current user context)
+    • POST /publish-resource (uses current user context)
+    • POST /unpublish-resource (uses current user context)
 end note
 
 @enduml

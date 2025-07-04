@@ -23,10 +23,10 @@ public class UserContextService {
     
     /**
      * Get the current authenticated user ID
-     * Supports both X-USER (JSON) and X-USER-ID (direct UUID) headers
+     * Uses X-USER header (JSON format with uuid field)
      */
     public UUID getCurrentUserId() {
-        // Try X-USER header first (JSON format)
+        // Try X-USER header (JSON format)
         String userHeader = requestContext.getHeaderString("X-USER");
         if (userHeader != null && !userHeader.trim().isEmpty()) {
             try {
@@ -34,17 +34,7 @@ public class UserContextService {
                 String uuid = userNode.get("uuid").asText();
                 return UUID.fromString(uuid);
             } catch (Exception e) {
-                // Fall through to try X-USER-ID
-            }
-        }
-        
-        // Try X-USER-ID header (direct UUID)
-        String userIdHeader = requestContext.getHeaderString("X-USER-ID");
-        if (userIdHeader != null && !userIdHeader.trim().isEmpty()) {
-            try {
-                return UUID.fromString(userIdHeader);
-            } catch (Exception e) {
-                // Invalid UUID format
+                // Invalid JSON or UUID format
             }
         }
         
@@ -53,8 +43,24 @@ public class UserContextService {
     
     /**
      * Get the current tenant ID
+     * First tries to extract from X-USER header, then falls back to X-TENANT-ID
      */
     public UUID getCurrentTenantId() {
+        // Try to get tenant ID from X-USER header first
+        String userHeader = requestContext.getHeaderString("X-USER");
+        if (userHeader != null && !userHeader.trim().isEmpty()) {
+            try {
+                JsonNode userNode = objectMapper.readTree(userHeader);
+                JsonNode tenantIdNode = userNode.get("tenantId");
+                if (tenantIdNode != null && !tenantIdNode.isNull()) {
+                    return UUID.fromString(tenantIdNode.asText());
+                }
+            } catch (Exception e) {
+                // Invalid JSON or UUID format, continue to fallback
+            }
+        }
+        
+        // Fallback to X-TENANT-ID header for backward compatibility
         String tenantHeader = requestContext.getHeaderString("X-TENANT-ID");
         if (tenantHeader != null && !tenantHeader.trim().isEmpty()) {
             try {

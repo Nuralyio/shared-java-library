@@ -6,9 +6,11 @@ import com.nuraly.library.permissions.client.model.AccessibleResourcesResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +51,7 @@ public class HttpPermissionClient implements PermissionClient {
     public boolean hasPermission(String userId, String permissionType, String resourceId, String tenantId) {
         try {
             Map<String, Object> request = createPermissionRequest(userId, permissionType, resourceId, tenantId);
-            return makePermissionRequest("/api/permissions/check", request);
+            return makePermissionRequest("/api/v1/acl/check-permission", request);
         } catch (Exception e) {
             // Log error in production
             System.err.println("Permission check failed: " + e.getMessage());
@@ -61,7 +63,7 @@ public class HttpPermissionClient implements PermissionClient {
     public boolean hasAnonymousPermission(String resourceId, String permissionType, String tenantId) {
         try {
             Map<String, Object> request = createAnonymousRequest(resourceId, permissionType, tenantId);
-            return makePermissionRequest("/api/permissions/check-anonymous", request);
+            return makePermissionRequest("/api/v1/acl/check-anonymous-permission", request);
         } catch (Exception e) {
             System.err.println("Anonymous permission check failed: " + e.getMessage());
             return false;
@@ -72,7 +74,7 @@ public class HttpPermissionClient implements PermissionClient {
     public boolean validatePublicLink(String token, String permissionType) {
         try {
             Map<String, Object> request = createPublicLinkRequest(token, permissionType);
-            return makePermissionRequest("/api/permissions/validate-public-link", request);
+            return makePermissionRequest("/api/v1/acl/validate-public-link", request);
         } catch (Exception e) {
             System.err.println("Public link validation failed: " + e.getMessage());
             return false;
@@ -83,7 +85,7 @@ public class HttpPermissionClient implements PermissionClient {
     public boolean isHealthy() {
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(permissionsServiceUrl + "/api/permissions/health"))
+                .uri(URI.create(permissionsServiceUrl + "/api/v1/acl/public-resources"))
                 .timeout(Duration.ofSeconds(timeoutSeconds))
                 .GET()
                 .build();
@@ -112,7 +114,7 @@ public class HttpPermissionClient implements PermissionClient {
                                                              int limit, int offset) {
         try {
             Map<String, Object> request = createAccessibleResourcesRequest(userId, permissionType, resourceType, tenantId, limit, offset);
-            return makeAccessibleResourcesRequest("/api/permissions/accessible-resources", request);
+            return makeAccessibleResourcesRequest("/api/v1/acl/accessible-resources", request);
         } catch (Exception e) {
             System.err.println("Failed to get accessible resources: " + e.getMessage());
             return new AccessibleResourcesResponse(Collections.emptyList(), permissionType, resourceType, tenantId, 0);
@@ -134,13 +136,26 @@ public class HttpPermissionClient implements PermissionClient {
     private boolean makePermissionRequest(String endpoint, Map<String, Object> requestBody) throws Exception {
         String jsonBody = objectMapper.writeValueAsString(requestBody);
         
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
             .uri(URI.create(permissionsServiceUrl + endpoint))
             .timeout(Duration.ofSeconds(timeoutSeconds))
             .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-            .build();
-            
+            .POST(HttpRequest.BodyPublishers.ofString(jsonBody));
+        
+        // Add X-USER header if userId is present in the request body
+        Object userId = requestBody.get("userId");
+        Object tenantId = requestBody.get("tenantId");
+        if (userId != null) {
+            String userHeaderValue;
+            if (tenantId != null) {
+                userHeaderValue = "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}";
+            } else {
+                userHeaderValue = "{\"uuid\":\"" + userId.toString() + "\"}";
+            }
+            requestBuilder.header("X-USER", userHeaderValue);
+        }
+        
+        HttpRequest request = requestBuilder.build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         
         // 200 = permission granted, 403 = permission denied, others = error
@@ -148,15 +163,49 @@ public class HttpPermissionClient implements PermissionClient {
     }
     
     private AccessibleResourcesResponse makeAccessibleResourcesRequest(String endpoint, Map<String, Object> requestBody) throws Exception {
-        String jsonBody = objectMapper.writeValueAsString(requestBody);
+        // Build query parameters for GET request
+        StringBuilder queryParams = new StringBuilder();
+        boolean first = true;
         
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(permissionsServiceUrl + endpoint))
-            .timeout(Duration.ofSeconds(timeoutSeconds))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-            .build();
+        for (Map.Entry<String, Object> entry : requestBody.entrySet()) {
+            // Skip null values
+            if (entry.getValue() == null) {
+                continue;
+            }
             
+            if (!first) {
+                queryParams.append("&");
+            }
+            queryParams.append(URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8))
+                       .append("=")
+                       .append(URLEncoder.encode(entry.getValue().toString(), StandardCharsets.UTF_8));
+            first = false;
+        }
+        
+        String url = permissionsServiceUrl + endpoint;
+        if (queryParams.length() > 0) {
+            url += "?" + queryParams.toString();
+        }
+        
+        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+            .uri(URI.create(url))
+            .timeout(Duration.ofSeconds(timeoutSeconds))
+            .GET();
+        
+        // Add X-USER header if userId is present in the request body
+        Object userId = requestBody.get("userId");
+        Object tenantId = requestBody.get("tenantId");
+        if (userId != null) {
+            String userHeaderValue;
+            if (tenantId != null) {
+                userHeaderValue = "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}";
+            } else {
+                userHeaderValue = "{\"uuid\":\"" + userId.toString() + "\"}";
+            }
+            requestBuilder.header("X-USER", userHeaderValue);
+        }
+        
+        HttpRequest request = requestBuilder.build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         
         if (response.statusCode() == 200) {

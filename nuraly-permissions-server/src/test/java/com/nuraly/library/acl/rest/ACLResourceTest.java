@@ -129,8 +129,7 @@ public class ACLResourceTest {
     // Helper method to create test requests with common headers
     private io.restassured.specification.RequestSpecification createTestRequest() {
         return given()
-            .header("X-Tenant-ID", tenantId.toString())
-            .header("X-User-ID", userId.toString())
+            .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
             .header("X-Test-Mode", "true")
             .contentType("application/json");
     }
@@ -527,9 +526,8 @@ public class ACLResourceTest {
         
         // When - check accessible resources instead since resource grants endpoint doesn't exist
         createTestRequest()
-            .queryParam("tenantId", tenantId.toString())
             .when()
-            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .get("/api/v1/acl/accessible-resources")
             .then()
             .statusCode(200)
             .body("size()", greaterThan(0));
@@ -556,9 +554,8 @@ public class ACLResourceTest {
         
         // When - check accessible resources instead since user grants endpoint doesn't exist
         createTestRequest()
-            .queryParam("tenantId", tenantId.toString())
             .when()
-            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .get("/api/v1/acl/accessible-resources")
             .then()
             .statusCode(200)
             .body("size()", greaterThan(0));
@@ -577,14 +574,14 @@ public class ACLResourceTest {
         grantRequest.tenantId = null; // Missing tenant ID
         
         given()
-            .header("X-User-ID", userId.toString())
+            .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\"}") // No tenantId in X-USER header
             .header("X-Test-Mode", "true")
             .contentType("application/json")
             .body(grantRequest)
             .when()
             .post("/api/v1/acl/grant-permission")
             .then()
-            .statusCode(200); // API currently allows null tenantId
+            .statusCode(200); // System allows operations without tenant ID for now
     }
     
     @Test
