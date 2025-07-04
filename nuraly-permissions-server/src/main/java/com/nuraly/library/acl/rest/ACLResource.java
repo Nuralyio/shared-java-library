@@ -539,7 +539,7 @@ public class ACLResource {
     @Path("/accessible-resources/{userId}")
     @Operation(
         summary = "Get accessible resources",
-        description = "Retrieve all resources that a user has access to within a tenant"
+        description = "Retrieve all resources that a user has access to within a tenant, optionally filtered by resource type and permission"
     )
     @APIResponses({
         @APIResponse(
@@ -559,9 +559,13 @@ public class ACLResource {
         @Parameter(description = "User ID", required = true)
         @PathParam("userId") UUID userId, 
         @Parameter(description = "Tenant ID for filtering resources")
-        @QueryParam("tenantId") UUID tenantId) {
+        @QueryParam("tenantId") UUID tenantId,
+        @Parameter(description = "Resource type to filter by (optional)")
+        @QueryParam("resourceType") String resourceType,
+        @Parameter(description = "Permission name to filter by (optional)")
+        @QueryParam("permission") String permissionName) {
         try {
-            List<Resource> resources = aclService.getAccessibleResources(userId, tenantId);
+            List<Resource> resources = aclService.getAccessibleResources(userId, tenantId, resourceType, permissionName);
             return Response.ok(resources).build();
         } catch (Exception e) {
             return createErrorResponse(e);

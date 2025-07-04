@@ -247,34 +247,92 @@ public class ACLService {
      * Get all resources accessible by a user
      */
     public List<Resource> getAccessibleResources(UUID userId, UUID tenantId) {
+        return getAccessibleResources(userId, tenantId, null, null);
+    }
+    
+    /**
+     * Get all resources accessible by a user, optionally filtered by resource type
+     */
+    public List<Resource> getAccessibleResources(UUID userId, UUID tenantId, String resourceType) {
+        return getAccessibleResources(userId, tenantId, resourceType, null);
+    }
+    
+    /**
+     * Get all resources accessible by a user, optionally filtered by resource type and permission
+     */
+    public List<Resource> getAccessibleResources(UUID userId, UUID tenantId, String resourceType, String permissionName) {
         Set<UUID> accessibleResourceIds = new HashSet<>();
         
-        // Resources owned by the user
-        List<Resource> ownedResources = Resource.findByOwner(userId);
-        accessibleResourceIds.addAll(ownedResources.stream().map(r -> r.id).collect(Collectors.toSet()));
-        
-        // Resources with direct grants
-        List<ResourceGrant> userGrants = ResourceGrant.findByExternalUser(userId);
-        accessibleResourceIds.addAll(userGrants.stream()
-            .filter(ResourceGrant::isValid)
-            .map(g -> g.resource.id)
-            .collect(Collectors.toSet()));
-        
-        // Resources through role-based access (tenant-scoped)
-        List<UserRole> userRoles = UserRole.findActiveByExternalUser(userId);
-        for (UserRole userRole : userRoles) {
-            // If user has tenant-scoped roles, they can access tenant resources based on role permissions
-            if (userRole.externalTenantId != null) {
-                List<Resource> tenantResources = Resource.findByTenant(userRole.externalTenantId);
-                accessibleResourceIds.addAll(tenantResources.stream().map(r -> r.id).collect(Collectors.toSet()));
+        // If filtering by a specific permission, we need to check access differently
+        if (permissionName != null && !permissionName.trim().isEmpty()) {
+            Permission permission = Permission.findByName(permissionName);
+            if (permission == null) {
+                return Collections.emptyList(); // Permission doesn't exist
+            }
+            
+            // Find all resources where the user has the specific permission
+            // Resources owned by the user (owners have all permissions)
+            List<Resource> ownedResources = Resource.findByOwner(userId);
+            accessibleResourceIds.addAll(ownedResources.stream().map(r -> r.id).collect(Collectors.toSet()));
+            
+            // Resources with direct grants for the specific permission
+            List<ResourceGrant> userGrants = ResourceGrant.findByExternalUser(userId);
+            userGrants = userGrants.stream()
+                .filter(grant -> grant.isValid() && grant.permission.id.equals(permission.id))
+                .collect(Collectors.toList());
+            accessibleResourceIds.addAll(userGrants.stream()
+                .map(g -> g.resource.id)
+                .collect(Collectors.toSet()));
+            
+            // Resources through role-based access (tenant-scoped)
+            List<UserRole> userRoles = UserRole.findActiveByExternalUser(userId);
+            for (UserRole userRole : userRoles) {
+                if (userRole.externalTenantId != null && userRole.role != null && 
+                    userRole.role.getAllPermissions().contains(permission)) {
+                    List<Resource> tenantResources = Resource.findByTenant(userRole.externalTenantId);
+                    accessibleResourceIds.addAll(tenantResources.stream().map(r -> r.id).collect(Collectors.toSet()));
+                }
+            }
+        } else {
+            // No specific permission filter - return all accessible resources
+            
+            // Resources owned by the user
+            List<Resource> ownedResources = Resource.findByOwner(userId);
+            accessibleResourceIds.addAll(ownedResources.stream().map(r -> r.id).collect(Collectors.toSet()));
+            
+            // Resources with direct grants
+            List<ResourceGrant> userGrants = ResourceGrant.findByExternalUser(userId);
+            userGrants = userGrants.stream()
+                .filter(ResourceGrant::isValid)
+                .collect(Collectors.toList());
+            accessibleResourceIds.addAll(userGrants.stream()
+                .map(g -> g.resource.id)
+                .collect(Collectors.toSet()));
+            
+            // Resources through role-based access (tenant-scoped)
+            List<UserRole> userRoles = UserRole.findActiveByExternalUser(userId);
+            for (UserRole userRole : userRoles) {
+                if (userRole.externalTenantId != null) {
+                    List<Resource> tenantResources = Resource.findByTenant(userRole.externalTenantId);
+                    accessibleResourceIds.addAll(tenantResources.stream().map(r -> r.id).collect(Collectors.toSet()));
+                }
             }
         }
         
         // Fetch all accessible resources
-        return accessibleResourceIds.stream()
+        List<Resource> accessibleResources = accessibleResourceIds.stream()
             .map(id -> Resource.<Resource>findById(id))
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
+        
+        // Filter by resource type if specified
+        if (resourceType != null && !resourceType.trim().isEmpty()) {
+            accessibleResources = accessibleResources.stream()
+                .filter(resource -> resourceType.equals(resource.resourceType))
+                .collect(Collectors.toList());
+        }
+        
+        return accessibleResources;
     }
     
     /**

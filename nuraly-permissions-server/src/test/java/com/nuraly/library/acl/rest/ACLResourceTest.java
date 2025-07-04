@@ -389,6 +389,131 @@ public class ACLResourceTest {
     }
     
     @Test
+    @DisplayName("Should filter accessible resources by resource type")
+    public void testGetAccessibleResourcesWithResourceTypeFilter() {
+        setupTestDataAndCommit();
+        
+        // Grant permission first
+        GrantPermissionRequest grantRequest = new GrantPermissionRequest();
+        grantRequest.userId = userId;
+        grantRequest.resourceId = resourceId;
+        grantRequest.permissionId = permissionId;
+        grantRequest.grantedBy = userId;
+        grantRequest.tenantId = tenantId;
+        
+        createTestRequest()
+            .body(grantRequest)
+            .when()
+            .post("/api/v1/acl/grant-permission")
+            .then()
+            .statusCode(200);
+        
+        // Test with correct resource type
+        createTestRequest()
+            .queryParam("tenantId", tenantId.toString())
+            .queryParam("resourceType", "document")
+            .when()
+            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .then()
+            .statusCode(200)
+            .body("size()", greaterThan(0));
+        
+        // Test with incorrect resource type (should return empty)
+        createTestRequest()
+            .queryParam("tenantId", tenantId.toString())
+            .queryParam("resourceType", "image")
+            .when()
+            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .then()
+            .statusCode(200)
+            .body("size()", equalTo(0));
+    }
+    
+    @Test
+    @DisplayName("Should filter accessible resources by permission")
+    public void testGetAccessibleResourcesWithPermissionFilter() {
+        setupTestDataAndCommit();
+        
+        // Grant permission first
+        GrantPermissionRequest grantRequest = new GrantPermissionRequest();
+        grantRequest.userId = userId;
+        grantRequest.resourceId = resourceId;
+        grantRequest.permissionId = permissionId;
+        grantRequest.grantedBy = userId;
+        grantRequest.tenantId = tenantId;
+        
+        createTestRequest()
+            .body(grantRequest)
+            .when()
+            .post("/api/v1/acl/grant-permission")
+            .then()
+            .statusCode(200);
+        
+        // Test with correct permission
+        createTestRequest()
+            .queryParam("tenantId", tenantId.toString())
+            .queryParam("permission", "read")
+            .when()
+            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .then()
+            .statusCode(200)
+            .body("size()", greaterThan(0));
+        
+        // Test with incorrect permission (should return empty or fewer results)
+        createTestRequest()
+            .queryParam("tenantId", tenantId.toString())
+            .queryParam("permission", "delete")
+            .when()
+            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .then()
+            .statusCode(200);
+            // Note: Don't check size since user might be owner and have access anyway
+    }
+    
+    @Test
+    @DisplayName("Should filter accessible resources by both resource type and permission")
+    public void testGetAccessibleResourcesWithBothFilters() {
+        setupTestDataAndCommit();
+        
+        // Grant permission first
+        GrantPermissionRequest grantRequest = new GrantPermissionRequest();
+        grantRequest.userId = userId;
+        grantRequest.resourceId = resourceId;
+        grantRequest.permissionId = permissionId;
+        grantRequest.grantedBy = userId;
+        grantRequest.tenantId = tenantId;
+        
+        createTestRequest()
+            .body(grantRequest)
+            .when()
+            .post("/api/v1/acl/grant-permission")
+            .then()
+            .statusCode(200);
+        
+        // Test with both correct filters
+        createTestRequest()
+            .queryParam("tenantId", tenantId.toString())
+            .queryParam("resourceType", "document")
+            .queryParam("permission", "read")
+            .when()
+            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .then()
+            .statusCode(200)
+            .body("size()", greaterThan(0));
+        
+        // Test with correct resource type but wrong permission
+        createTestRequest()
+            .queryParam("tenantId", tenantId.toString())
+            .queryParam("resourceType", "document")
+            .queryParam("permission", "nonexistent")
+            .when()
+            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .then()
+            .statusCode(200)
+            .body("size()", equalTo(0));
+    }
+    
+    @Test
     @DisplayName("Should get resource grants via REST API")
     public void testGetResourceGrantsEndpoint() {
         setupTestDataAndCommit();
