@@ -41,18 +41,13 @@ public class ACLResourceTest {
         String uniqueId = UUID.randomUUID().toString();
         tenantId = UUID.randomUUID();
         
-        // Create user with unique data (let Hibernate generate the ID)
-        User user = new User();
-        user.username = "testuser_" + uniqueId;
-        user.email = "test" + uniqueId + "@example.com";
-        user.tenantId = tenantId;
-        user.persistAndFlush();
-        userId = user.id;
+        // Use external user ID instead of creating User entity
+        userId = UUID.randomUUID();
         
         // Create organization with unique name (let Hibernate generate the ID)
         Organization org = new Organization();
         org.name = "Test Organization " + uniqueId;
-        org.tenantId = tenantId;
+        org.externalTenantId = tenantId;
         org.ownerId = userId;
         org.persistAndFlush();
         organizationId = org.id;
@@ -65,7 +60,6 @@ public class ACLResourceTest {
             permission.name = "read";
             permission.description = "Read permission";
             permission.isSystemPermission = true;
-            permission.tenantId = null; // System permissions have no tenant
             permission.persistAndFlush();
         }
         permissionId = permission.id;
@@ -74,7 +68,7 @@ public class ACLResourceTest {
         Role role = new Role();
         role.name = "Test Role " + uniqueId;
         role.description = "Test role for testing";
-        role.tenantId = tenantId;
+        role.externalTenantId = tenantId;
         role.scope = RoleScope.RESOURCE;
         role.permissions = new java.util.HashSet<>();
         role.permissions.add(permission);
@@ -85,7 +79,7 @@ public class ACLResourceTest {
         Resource resource = new Resource();
         resource.name = "Test Resource " + uniqueId;
         resource.resourceType = "document";
-        resource.tenantId = tenantId;
+        resource.externalTenantId = tenantId;
         resource.ownerId = userId;
         resource.organizationId = organizationId;
         resource.persistAndFlush();
@@ -99,36 +93,36 @@ public class ACLResourceTest {
         
         if (adminPermission != null) {
             ResourceGrant adminGrant = new ResourceGrant();
-            adminGrant.user = user;
+            adminGrant.externalUserId = userId;
             adminGrant.resource = resource;
             adminGrant.permission = adminPermission;
             adminGrant.grantType = GrantType.DIRECT;
             adminGrant.grantedBy = userId;
-            adminGrant.tenantId = tenantId;
+            adminGrant.externalTenantId = tenantId;
             adminGrant.isActive = true;
             adminGrant.persistAndFlush();
         }
         
         if (sharePermission != null) {
             ResourceGrant shareGrant = new ResourceGrant();
-            shareGrant.user = user;
+            shareGrant.externalUserId = userId;
             shareGrant.resource = resource;
             shareGrant.permission = sharePermission;
             shareGrant.grantType = GrantType.DIRECT;
             shareGrant.grantedBy = userId;
-            shareGrant.tenantId = tenantId;
+            shareGrant.externalTenantId = tenantId;
             shareGrant.isActive = true;
             shareGrant.persistAndFlush();
         }
         
         if (publishPermission != null) {
             ResourceGrant publishGrant = new ResourceGrant();
-            publishGrant.user = user;
+            publishGrant.externalUserId = userId;
             publishGrant.resource = resource;
             publishGrant.permission = publishPermission;
             publishGrant.grantType = GrantType.DIRECT;
             publishGrant.grantedBy = userId;
-            publishGrant.tenantId = tenantId;
+            publishGrant.externalTenantId = tenantId;
             publishGrant.isActive = true;
             publishGrant.persistAndFlush();
         }
@@ -349,13 +343,8 @@ public class ACLResourceTest {
     public void testShareResourceEndpoint() {
         setupTestDataAndCommit();
         
-        // Create target user using the same pattern as other tests
-        User targetUser = new User();
-        targetUser.username = "targetuser_" + UUID.randomUUID().toString();
-        targetUser.email = "target_" + UUID.randomUUID().toString() + "@example.com";
-        targetUser.tenantId = tenantId;
-        targetUser.persistAndFlush();
-        UUID targetUserId = targetUser.id;
+        // Create target user using external user ID
+        UUID targetUserId = UUID.randomUUID();
         
         // Use a system role that should definitely exist
         Role viewerRole = Role.find("name = ?1 and isSystemRole = ?2", "Viewer", true).firstResult();
@@ -537,13 +526,8 @@ public class ACLResourceTest {
     @Transactional
     public void testUnauthorizedAccess() {
         setupTestDataAndCommit();
-        // Create different user (let Hibernate generate the ID)
-        User otherUser = new User();
-        otherUser.username = "otheruser_" + UUID.randomUUID().toString();
-        otherUser.email = "other_" + UUID.randomUUID().toString() + "@example.com";
-        otherUser.tenantId = tenantId;
-        otherUser.persist();
-        UUID otherUserId = otherUser.id;
+        // Create different user using external user ID
+        UUID otherUserId = UUID.randomUUID();
         
         // Try to check permission for other user on our resource
         PermissionCheckRequest checkRequest = new PermissionCheckRequest();

@@ -1,0 +1,115 @@
+@startuml ACL Database Schema
+
+!theme plain
+skinparam backgroundColor white
+skinparam roundcorner 10
+
+title ACL System Database Schema
+
+entity "Resource" as resource {
+    * id : UUID <<PK>>
+    --
+    * name : VARCHAR(255)
+    * description : TEXT
+    * resourceType : VARCHAR(50)
+    * ownerId : UUID
+    * externalTenantId : UUID
+    * isPublic : BOOLEAN
+    * isActive : BOOLEAN
+    * createdAt : TIMESTAMP
+    * updatedAt : TIMESTAMP
+}
+
+entity "Permission" as permission {
+    * id : UUID <<PK>>
+    --
+    * name : VARCHAR(50)
+    * description : TEXT
+    * isSystemPermission : BOOLEAN
+    * createdAt : TIMESTAMP
+}
+
+entity "Role" as role {
+    * id : UUID <<PK>>
+    --
+    * name : VARCHAR(100)
+    * description : TEXT
+    * externalTenantId : UUID
+    * isActive : BOOLEAN
+    * createdAt : TIMESTAMP
+    * updatedAt : TIMESTAMP
+}
+
+entity "ResourceGrant" as grant {
+    * id : UUID <<PK>>
+    --
+    * externalUserId : UUID
+    * resourceId : UUID <<FK>>
+    * permissionId : UUID <<FK>>
+    * roleId : UUID <<FK>>
+    * grantType : VARCHAR(20)
+    * grantedBy : UUID
+    * revokedBy : UUID
+    * expiresAt : TIMESTAMP
+    * isActive : BOOLEAN
+    * createdAt : TIMESTAMP
+    * updatedAt : TIMESTAMP
+    * revokedAt : TIMESTAMP
+    * revokeReason : TEXT
+}
+
+entity "UserRole" as userRole {
+    * id : UUID <<PK>>
+    --
+    * externalUserId : UUID
+    * roleId : UUID <<FK>>
+    * assignedBy : UUID
+    * isActive : BOOLEAN
+    * createdAt : TIMESTAMP
+    * updatedAt : TIMESTAMP
+}
+
+entity "RolePermission" as rolePermission {
+    * id : UUID <<PK>>
+    --
+    * roleId : UUID <<FK>>
+    * permissionId : UUID <<FK>>
+    * createdAt : TIMESTAMP
+}
+
+' Relationships
+resource ||--o{ grant : "has grants"
+
+permission ||--o{ grant : "defines"
+permission ||--o{ rolePermission : "assigned to role"
+
+role ||--o{ grant : "enables"
+role ||--o{ userRole : "assigned to user"
+role ||--o{ rolePermission : "has permissions"
+
+note as N1
+    **Grant Types:**
+    • DIRECT: Direct user permission
+    • ROLE: Role-based permission
+    • INHERITED: Organizational hierarchy
+    • PUBLIC: Anonymous access
+end note
+
+note as N2
+    **Key Constraints:**
+    • externalTenantId isolation enforced
+    • Soft deletes via isActive flags
+    • Audit trail with timestamps
+    • Owner always has full access
+    • Users managed by external system
+end note
+
+note as N3
+    **Permission Model:**
+    • System permissions: read, write, delete, admin, share, publish
+    • Custom tenant-specific permissions
+    • Role-based permission inheritance
+    • Explicit grant/revoke tracking
+end note
+
+@enduml

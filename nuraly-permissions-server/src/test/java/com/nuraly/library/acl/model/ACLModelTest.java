@@ -18,35 +18,6 @@ import static org.junit.jupiter.api.Assertions.*;
 @QuarkusTest
 public class ACLModelTest {
     
-    @Test
-    @TestTransaction
-    @DisplayName("Should create and persist User entity")
-    public void testUserEntity() {
-        // Given
-        UUID tenantId = UUID.randomUUID();
-        User user = new User();
-        user.username = "testuser";
-        user.email = "test@example.com";
-        user.displayName = "Test User";
-        user.tenantId = tenantId;
-        user.isActive = true;
-        user.roles = new HashSet<>();
-        
-        // When
-        user.persist();
-        
-        // Then
-        assertNotNull(user.id);
-        assertNotNull(user.createdAt);
-        assertNotNull(user.updatedAt);
-        
-        User foundUser = User.findById(user.id);
-        assertNotNull(foundUser);
-        assertEquals("testuser", foundUser.username);
-        assertEquals("test@example.com", foundUser.email);
-        assertEquals(tenantId, foundUser.tenantId);
-        assertTrue(foundUser.isActive);
-    }
     
     @Test
     @TestTransaction
@@ -91,7 +62,7 @@ public class ACLModelTest {
         Role role = new Role();
         role.name = "Test Role";
         role.description = "Test role description";
-        role.tenantId = tenantId;
+        role.externalTenantId = tenantId;
         role.scope = RoleScope.RESOURCE;
         role.isSystemRole = false;
         role.permissions = new HashSet<>();
@@ -109,7 +80,7 @@ public class ACLModelTest {
         assertNotNull(foundRole);
         assertEquals("Test Role", foundRole.name);
         assertEquals(RoleScope.RESOURCE, foundRole.scope);
-        assertEquals(tenantId, foundRole.tenantId);
+        assertEquals(tenantId, foundRole.externalTenantId);
         assertFalse(foundRole.isSystemRole);
         assertEquals(1, foundRole.permissions.size());
         assertTrue(foundRole.permissions.contains(permission));
@@ -128,7 +99,7 @@ public class ACLModelTest {
         resource.name = "Test Resource";
         resource.description = "Test resource description";
         resource.resourceType = "document";
-        resource.tenantId = tenantId;
+        resource.externalTenantId = tenantId;
         resource.ownerId = ownerId;
         resource.organizationId = organizationId;
         resource.isPublic = false;
@@ -146,7 +117,7 @@ public class ACLModelTest {
         assertNotNull(foundResource);
         assertEquals("Test Resource", foundResource.name);
         assertEquals("document", foundResource.resourceType);
-        assertEquals(tenantId, foundResource.tenantId);
+        assertEquals(tenantId, foundResource.externalTenantId);
         assertEquals(ownerId, foundResource.ownerId);
         assertEquals(organizationId, foundResource.organizationId);
         assertFalse(foundResource.isPublic);
@@ -164,7 +135,7 @@ public class ACLModelTest {
         Organization organization = new Organization();
         organization.name = "Test Organization";
         organization.description = "Test organization description";
-        organization.tenantId = tenantId;
+        organization.externalTenantId = tenantId;
         organization.ownerId = ownerId;
         organization.isActive = true;
         
@@ -179,7 +150,7 @@ public class ACLModelTest {
         Organization foundOrg = Organization.findById(organization.id);
         assertNotNull(foundOrg);
         assertEquals("Test Organization", foundOrg.name);
-        assertEquals(tenantId, foundOrg.tenantId);
+        assertEquals(tenantId, foundOrg.externalTenantId);
         assertEquals(ownerId, foundOrg.ownerId);
         assertTrue(foundOrg.isActive);
     }
@@ -190,18 +161,13 @@ public class ACLModelTest {
     public void testResourceGrantEntity() {
         // Given - create dependencies
         UUID tenantId = UUID.randomUUID();
-        
-        User user = new User();
-        user.username = "testuser";
-        user.email = "test@example.com";
-        user.tenantId = tenantId;
-        user.persist();
+        UUID externalUserId = UUID.randomUUID();
         
         Resource resource = new Resource();
         resource.name = "Test Resource";
         resource.resourceType = "document";
-        resource.tenantId = tenantId;
-        resource.ownerId = user.id;
+        resource.externalTenantId = tenantId;
+        resource.ownerId = externalUserId;
         resource.persist();
         
         Permission permission = new Permission();
@@ -211,11 +177,11 @@ public class ACLModelTest {
         
         // Create resource grant
         ResourceGrant grant = new ResourceGrant();
-        grant.user = user;
+        grant.externalUserId = externalUserId;
         grant.resource = resource;
         grant.permission = permission;
-        grant.grantedBy = user.id;
-        grant.tenantId = tenantId;
+        grant.grantedBy = externalUserId;
+        grant.externalTenantId = tenantId;
         grant.grantType = GrantType.DIRECT;
         grant.expiresAt = LocalDateTime.now().plusDays(30);
         
@@ -230,11 +196,11 @@ public class ACLModelTest {
         
         ResourceGrant foundGrant = ResourceGrant.findById(grant.id);
         assertNotNull(foundGrant);
-        assertEquals(user.id, foundGrant.user.id);
+        assertEquals(externalUserId, foundGrant.externalUserId);
         assertEquals(resource.id, foundGrant.resource.id);
         assertEquals(permission.id, foundGrant.permission.id);
         assertEquals(GrantType.DIRECT, foundGrant.grantType);
-        assertEquals(tenantId, foundGrant.tenantId);
+        assertEquals(tenantId, foundGrant.externalTenantId);
     }
     
     @Test
@@ -243,18 +209,13 @@ public class ACLModelTest {
     public void testExpiredResourceGrant() {
         // Given - create expired grant
         UUID tenantId = UUID.randomUUID();
-        
-        User user = new User();
-        user.username = "testuser";
-        user.email = "test@example.com";
-        user.tenantId = tenantId;
-        user.persist();
+        UUID externalUserId = UUID.randomUUID();
         
         Resource resource = new Resource();
         resource.name = "Test Resource";
         resource.resourceType = "document";
-        resource.tenantId = tenantId;
-        resource.ownerId = user.id;
+        resource.externalTenantId = tenantId;
+        resource.ownerId = externalUserId;
         resource.persist();
         
         Permission permission = new Permission();
@@ -263,11 +224,11 @@ public class ACLModelTest {
         permission.persist();
         
         ResourceGrant grant = new ResourceGrant();
-        grant.user = user;
+        grant.externalUserId = externalUserId;
         grant.resource = resource;
         grant.permission = permission;
-        grant.grantedBy = user.id;
-        grant.tenantId = tenantId;
+        grant.grantedBy = externalUserId;
+        grant.externalTenantId = tenantId;
         grant.grantType = GrantType.DIRECT;
         grant.expiresAt = LocalDateTime.now().minusHours(1); // Expired
         grant.persist();
@@ -282,33 +243,28 @@ public class ACLModelTest {
     public void testOrganizationMembershipEntity() {
         // Given - create dependencies
         UUID tenantId = UUID.randomUUID();
-        
-        User user = new User();
-        user.username = "testuser";
-        user.email = "test@example.com";
-        user.tenantId = tenantId;
-        user.persist();
+        UUID externalUserId = UUID.randomUUID();
         
         Organization organization = new Organization();
         organization.name = "Test Organization";
-        organization.tenantId = tenantId;
-        organization.ownerId = user.id;
+        organization.externalTenantId = tenantId;
+        organization.ownerId = externalUserId;
         organization.persist();
         
         Role role = new Role();
         role.name = "Member";
         role.description = "Organization member";
-        role.tenantId = tenantId;
+        role.externalTenantId = tenantId;
         role.scope = RoleScope.ORGANIZATION;
         role.persist();
         
         // Create membership
         OrganizationMembership membership = new OrganizationMembership();
-        membership.user = user;
+        membership.externalUserId = externalUserId;
         membership.organization = organization;
         membership.role = role;
         membership.membershipType = MembershipType.MEMBER;
-        membership.tenantId = tenantId;
+        membership.externalTenantId = tenantId;
         membership.isActive = true;
         
         // When
@@ -321,11 +277,11 @@ public class ACLModelTest {
         
         OrganizationMembership foundMembership = OrganizationMembership.findById(membership.id);
         assertNotNull(foundMembership);
-        assertEquals(user.id, foundMembership.user.id);
+        assertEquals(externalUserId, foundMembership.externalUserId);
         assertEquals(organization.id, foundMembership.organization.id);
         assertEquals(role.id, foundMembership.role.id);
         assertEquals(MembershipType.MEMBER, foundMembership.membershipType);
-        assertEquals(tenantId, foundMembership.tenantId);
+        assertEquals(tenantId, foundMembership.externalTenantId);
     }
     
     @Test
@@ -339,7 +295,7 @@ public class ACLModelTest {
         UUID permissionId = UUID.randomUUID();
         
         AuditLog auditLog = new AuditLog();
-        auditLog.tenantId = tenantId;
+        auditLog.externalTenantId = tenantId;
         auditLog.actionType = AuditActionType.PERMISSION_GRANTED;
         auditLog.userId = userId;
         auditLog.resourceId = resourceId;
@@ -358,7 +314,7 @@ public class ACLModelTest {
         AuditLog foundLog = AuditLog.findById(auditLog.id);
         assertNotNull(foundLog);
         assertEquals(AuditActionType.PERMISSION_GRANTED, foundLog.actionType);
-        assertEquals(tenantId, foundLog.tenantId);
+        assertEquals(tenantId, foundLog.externalTenantId);
         assertEquals(userId, foundLog.userId);
         assertEquals(resourceId, foundLog.resourceId);
         assertEquals(permissionId, foundLog.permissionId);
@@ -420,51 +376,34 @@ public class ACLModelTest {
         // Given
         UUID tenant1Id = UUID.randomUUID();
         UUID tenant2Id = UUID.randomUUID();
+        UUID user1Id = UUID.randomUUID();
+        UUID user2Id = UUID.randomUUID();
         
         // Create entities for tenant 1
-        User user1 = new User();
-        user1.username = "user1";
-        user1.email = "user1@example.com";
-        user1.tenantId = tenant1Id;
-        user1.persist();
-        
         Resource resource1 = new Resource();
         resource1.name = "Resource 1";
         resource1.resourceType = "document";
-        resource1.tenantId = tenant1Id;
-        resource1.ownerId = user1.id;
+        resource1.externalTenantId = tenant1Id;
+        resource1.ownerId = user1Id;
         resource1.persist();
         
         // Create entities for tenant 2
-        User user2 = new User();
-        user2.username = "user2";
-        user2.email = "user2@example.com";
-        user2.tenantId = tenant2Id;
-        user2.persist();
-        
         Resource resource2 = new Resource();
         resource2.name = "Resource 2";
         resource2.resourceType = "document";
-        resource2.tenantId = tenant2Id;
-        resource2.ownerId = user2.id;
+        resource2.externalTenantId = tenant2Id;
+        resource2.ownerId = user2Id;
         resource2.persist();
         
         // When
-        List<User> tenant1Users = User.findByTenant(tenant1Id);
-        List<User> tenant2Users = User.findByTenant(tenant2Id);
         List<Resource> tenant1Resources = Resource.findByTenant(tenant1Id);
         List<Resource> tenant2Resources = Resource.findByTenant(tenant2Id);
         
         // Then
-        assertEquals(1, tenant1Users.size());
-        assertEquals(1, tenant2Users.size());
         assertEquals(1, tenant1Resources.size());
         assertEquals(1, tenant2Resources.size());
-        
-        assertEquals(user1.id, tenant1Users.get(0).id);
-        assertEquals(user2.id, tenant2Users.get(0).id);
-        assertEquals(resource1.id, tenant1Resources.get(0).id);
-        assertEquals(resource2.id, tenant2Resources.get(0).id);
+        assertEquals("Resource 1", tenant1Resources.get(0).name);
+        assertEquals("Resource 2", tenant2Resources.get(0).name);
     }
     
     @Test

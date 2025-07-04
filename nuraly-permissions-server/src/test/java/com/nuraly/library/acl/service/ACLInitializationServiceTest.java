@@ -133,30 +133,30 @@ public class ACLInitializationServiceTest {
         // This test verifies they exist
         
         // Application-level roles
-        Role superAdminRole = Role.find("name = ?1 and tenantId is null", "Super Admin").firstResult();
+        Role superAdminRole = Role.find("name = ?1 and externalTenantId is null", "Super Admin").firstResult();
         assertNotNull(superAdminRole);
         assertEquals(RoleScope.APPLICATION, superAdminRole.scope);
         assertTrue(superAdminRole.isSystemRole);
         assertFalse(superAdminRole.permissions.isEmpty());
         
-        Role platformUserRole = Role.find("name = ?1 and tenantId is null", "Platform User").firstResult();
+        Role platformUserRole = Role.find("name = ?1 and externalTenantId is null", "Platform User").firstResult();
         assertNotNull(platformUserRole);
         assertEquals(RoleScope.APPLICATION, platformUserRole.scope);
         assertTrue(platformUserRole.isSystemRole);
         
         // Organization-level roles
-        Role orgOwnerRole = Role.find("name = ?1 and tenantId is null", "Organization Owner").firstResult();
+        Role orgOwnerRole = Role.find("name = ?1 and externalTenantId is null", "Organization Owner").firstResult();
         assertNotNull(orgOwnerRole);
         assertEquals(RoleScope.ORGANIZATION, orgOwnerRole.scope);
         assertTrue(orgOwnerRole.isSystemRole);
         
         // Resource-level roles
-        Role viewerRole = Role.find("name = ?1 and tenantId is null", "Viewer").firstResult();
+        Role viewerRole = Role.find("name = ?1 and externalTenantId is null", "Viewer").firstResult();
         assertNotNull(viewerRole);
         assertEquals(RoleScope.RESOURCE, viewerRole.scope);
         assertTrue(viewerRole.isSystemRole);
         
-        Role editorRole = Role.find("name = ?1 and tenantId is null", "Editor").firstResult();
+        Role editorRole = Role.find("name = ?1 and externalTenantId is null", "Editor").firstResult();
         assertNotNull(editorRole);
         assertEquals(RoleScope.RESOURCE, editorRole.scope);
         assertTrue(editorRole.isSystemRole);
@@ -167,21 +167,21 @@ public class ACLInitializationServiceTest {
     @DisplayName("Should verify role permission assignments")
     public void testRolePermissionAssignments() {
         // Verify role permission assignments
-        Role viewerRole = Role.find("name = ?1 and tenantId is null", "Viewer").firstResult();
+        Role viewerRole = Role.find("name = ?1 and externalTenantId is null", "Viewer").firstResult();
         if (viewerRole != null) {
             assertTrue(viewerRole.permissions.stream().anyMatch(p -> p.name.equals("read")));
             // Viewer should not have write/delete permissions
             assertFalse(viewerRole.permissions.stream().anyMatch(p -> p.name.equals("delete")));
         }
         
-        Role editorRole = Role.find("name = ?1 and tenantId is null", "Editor").firstResult();
+        Role editorRole = Role.find("name = ?1 and externalTenantId is null", "Editor").firstResult();
         if (editorRole != null) {
             assertTrue(editorRole.permissions.stream().anyMatch(p -> p.name.equals("read")));
             assertTrue(editorRole.permissions.stream().anyMatch(p -> p.name.equals("write")));
             assertTrue(editorRole.permissions.stream().anyMatch(p -> p.name.equals("share")));
         }
         
-        Role publisherRole = Role.find("name = ?1 and tenantId is null", "Publisher").firstResult();
+        Role publisherRole = Role.find("name = ?1 and externalTenantId is null", "Publisher").firstResult();
         if (publisherRole != null) {
             assertTrue(publisherRole.permissions.stream().anyMatch(p -> p.name.equals("read")));
             assertTrue(publisherRole.permissions.stream().anyMatch(p -> p.name.equals("write")));

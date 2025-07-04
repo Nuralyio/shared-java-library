@@ -18,9 +18,8 @@ public class OrganizationMembership extends PanacheEntityBase {
     @GeneratedValue(strategy = GenerationType.AUTO)
     public UUID id;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    public User user;
+    @Column(name = "external_user_id", nullable = false)
+    public UUID externalUserId;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id", nullable = false)
@@ -35,7 +34,7 @@ public class OrganizationMembership extends PanacheEntityBase {
     public MembershipType membershipType = MembershipType.MEMBER;
     
     @Column(name = "invited_by")
-    public UUID invitedBy;
+    public UUID invitedBy; // External User ID who invited this member
     
     @Column(name = "is_active")
     public Boolean isActive = true;
@@ -49,8 +48,8 @@ public class OrganizationMembership extends PanacheEntityBase {
     @Column(name = "expires_at")
     public LocalDateTime expiresAt; // Optional membership expiration
     
-    @Column(name = "tenant_id")
-    public UUID tenantId;
+    @Column(name = "external_tenant_id")
+    public UUID externalTenantId;
     
     @PrePersist
     protected void onCreate() {
@@ -63,25 +62,25 @@ public class OrganizationMembership extends PanacheEntityBase {
     }
     
     // Finder methods
-    public static List<OrganizationMembership> findByUser(UUID userId) {
-        return find("user.id", userId).list();
+    public static List<OrganizationMembership> findByExternalUser(UUID externalUserId) {
+        return find("externalUserId", externalUserId).list();
     }
     
     public static List<OrganizationMembership> findByOrganization(UUID organizationId) {
         return find("organization.id", organizationId).list();
     }
     
-    public static List<OrganizationMembership> findByUserAndOrganization(UUID userId, UUID organizationId) {
-        return find("user.id = ?1 and organization.id = ?2", userId, organizationId).list();
+    public static List<OrganizationMembership> findByExternalUserAndOrganization(UUID externalUserId, UUID organizationId) {
+        return find("externalUserId = ?1 and organization.id = ?2", externalUserId, organizationId).list();
     }
     
-    public static List<OrganizationMembership> findActiveByUser(UUID userId) {
-        return find("user.id = ?1 and isActive = true and (expiresAt is null or expiresAt > ?2)", 
-                   userId, LocalDateTime.now()).list();
+    public static List<OrganizationMembership> findActiveByExternalUser(UUID externalUserId) {
+        return find("externalUserId = ?1 and isActive = true and (expiresAt is null or expiresAt > ?2)", 
+                   externalUserId, LocalDateTime.now()).list();
     }
     
-    public static List<OrganizationMembership> findByTenant(UUID tenantId) {
-        return find("tenantId", tenantId).list();
+    public static List<OrganizationMembership> findByTenant(UUID externalTenantId) {
+        return find("externalTenantId", externalTenantId).list();
     }
     
     /**

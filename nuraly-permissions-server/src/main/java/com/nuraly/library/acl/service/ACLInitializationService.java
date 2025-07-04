@@ -188,13 +188,13 @@ public class ACLInitializationService {
     
     private Role createRoleIfNotExists(String name, String description, UUID tenantId, 
                                       RoleScope scope, boolean isSystemRole) {
-        Role existing = Role.find("name = ?1 and tenantId = ?2", name, tenantId).firstResult();
+        Role existing = Role.find("name = ?1 and externalTenantId = ?2", name, tenantId).firstResult();
         
         if (existing == null) {
             Role role = new Role();
             role.name = name;
             role.description = description;
-            role.tenantId = tenantId;
+            role.externalTenantId = tenantId;
             role.scope = scope;
             role.isSystemRole = isSystemRole;
             role.permissions = new java.util.HashSet<>();

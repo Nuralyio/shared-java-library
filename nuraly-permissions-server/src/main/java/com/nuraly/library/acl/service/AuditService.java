@@ -56,7 +56,7 @@ public class AuditService {
     @Transactional
     public void logResourceShared(UUID tenantId, UUID sharedBy, UUID targetUserId, UUID resourceId, UUID roleId) {
         AuditLog log = new AuditLog();
-        log.tenantId = tenantId;
+        log.externalTenantId = tenantId;
         log.actionType = AuditActionType.RESOURCE_SHARED;
         log.userId = sharedBy;
         log.targetUserId = targetUserId;

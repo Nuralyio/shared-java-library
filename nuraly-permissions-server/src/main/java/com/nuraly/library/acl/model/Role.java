@@ -27,8 +27,8 @@ public class Role extends PanacheEntityBase {
     
     public String description;
     
-    @Column(name = "tenant_id")
-    public UUID tenantId;
+    @Column(name = "external_tenant_id")
+    public UUID externalTenantId;
     
     @Enumerated(EnumType.STRING)
     public RoleScope scope; // APPLICATION, ORGANIZATION, RESOURCE
@@ -64,11 +64,6 @@ public class Role extends PanacheEntityBase {
     @JsonIgnore
     public Set<Permission> permissions;
     
-    // Many-to-many relationship with users
-    @ManyToMany(mappedBy = "roles", fetch = FetchType.LAZY)
-    @JsonIgnore
-    public Set<User> users;
-    
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -89,8 +84,8 @@ public class Role extends PanacheEntityBase {
         return find("scope", scope).list();
     }
     
-    public static List<Role> findByTenant(UUID tenantId) {
-        return find("tenantId", tenantId).list();
+    public static List<Role> findByTenant(UUID externalTenantId) {
+        return find("externalTenantId", externalTenantId).list();
     }
     
     public static List<Role> findSystemRoles() {

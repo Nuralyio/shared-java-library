@@ -30,9 +30,6 @@ public class Permission extends PanacheEntityBase {
     @Column(name = "resource_type")
     public String resourceType; // e.g., "document", "dashboard", "function", "organization"
     
-    @Column(name = "tenant_id")
-    public UUID tenantId;
-    
     @Column(name = "is_system_permission")
     public Boolean isSystemPermission = false; // Built-in vs custom permissions
     
@@ -68,10 +65,6 @@ public class Permission extends PanacheEntityBase {
     
     public static List<Permission> findByResourceType(String resourceType) {
         return find("resourceType", resourceType).list();
-    }
-    
-    public static List<Permission> findByTenant(UUID tenantId) {
-        return find("tenantId", tenantId).list();
     }
     
     public static List<Permission> findSystemPermissions() {

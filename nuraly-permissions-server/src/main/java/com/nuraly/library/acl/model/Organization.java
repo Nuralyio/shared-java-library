@@ -27,11 +27,11 @@ public class Organization extends PanacheEntityBase {
     
     public String description;
     
-    @Column(name = "tenant_id")
-    public UUID tenantId;
+    @Column(name = "external_tenant_id")
+    public UUID externalTenantId;
     
     @Column(name = "owner_id")
-    public UUID ownerId;
+    public UUID ownerId; // External User ID who owns this organization
     
     // Self-referencing relationship for hierarchical organizations
     @ManyToOne(fetch = FetchType.LAZY)
@@ -75,8 +75,8 @@ public class Organization extends PanacheEntityBase {
         return find("ownerId", ownerId).list();
     }
     
-    public static List<Organization> findByTenant(UUID tenantId) {
-        return find("tenantId", tenantId).list();
+    public static List<Organization> findByTenant(UUID externalTenantId) {
+        return find("externalTenantId", externalTenantId).list();
     }
     
     public static List<Organization> findByParent(UUID parentId) {

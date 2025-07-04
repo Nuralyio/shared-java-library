@@ -22,9 +22,8 @@ public class ResourceGrant extends PanacheEntityBase {
     @JoinColumn(name = "resource_id", nullable = false)
     public Resource resource;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    public User user; // Can be null for role-based grants
+    @Column(name = "external_user_id")
+    public UUID externalUserId; // Can be null for role-based grants
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id")
@@ -38,10 +37,10 @@ public class ResourceGrant extends PanacheEntityBase {
     public GrantType grantType; // DIRECT, INHERITED, DELEGATED
     
     @Column(name = "granted_by")
-    public UUID grantedBy; // User who granted this permission
+    public UUID grantedBy; // External User ID who granted this permission
     
-    @Column(name = "tenant_id")
-    public UUID tenantId;
+    @Column(name = "external_tenant_id")
+    public UUID externalTenantId;
     
     @Column(name = "expires_at")
     public LocalDateTime expiresAt; // Optional expiration
@@ -60,7 +59,7 @@ public class ResourceGrant extends PanacheEntityBase {
     public LocalDateTime revokedAt;
     
     @Column(name = "revoked_by")
-    public UUID revokedBy;
+    public UUID revokedBy; // External User ID who revoked this permission
     
     @Column(name = "revocation_reason")
     public String revocationReason;
@@ -81,20 +80,20 @@ public class ResourceGrant extends PanacheEntityBase {
         return find("resource.id", resourceId).list();
     }
     
-    public static List<ResourceGrant> findByUser(UUID userId) {
-        return find("user.id", userId).list();
+    public static List<ResourceGrant> findByExternalUser(UUID externalUserId) {
+        return find("externalUserId", externalUserId).list();
     }
     
     public static List<ResourceGrant> findByRole(UUID roleId) {
         return find("role.id", roleId).list();
     }
     
-    public static List<ResourceGrant> findByUserAndResource(UUID userId, UUID resourceId) {
-        return find("user.id = ?1 and resource.id = ?2", userId, resourceId).list();
+    public static List<ResourceGrant> findByExternalUserAndResource(UUID externalUserId, UUID resourceId) {
+        return find("externalUserId = ?1 and resource.id = ?2", externalUserId, resourceId).list();
     }
     
-    public static List<ResourceGrant> findByTenant(UUID tenantId) {
-        return find("tenantId", tenantId).list();
+    public static List<ResourceGrant> findByTenant(UUID externalTenantId) {
+        return find("externalTenantId", externalTenantId).list();
     }
     
     public static List<ResourceGrant> findActiveGrants() {

@@ -36,17 +36,12 @@ public class AuditServiceTest {
         tenantId = UUID.randomUUID();
         
         // Create test entities (let Hibernate generate the IDs)
-        User user = new User();
-        user.username = "testuser_" + uniqueId;
-        user.email = "test" + uniqueId + "@example.com";
-        user.tenantId = tenantId;
-        user.persistAndFlush();
-        userId = user.id;
+        userId = UUID.randomUUID(); // Use external user ID
         
         Resource resource = new Resource();
         resource.name = "Test Resource " + uniqueId;
         resource.resourceType = "document";
-        resource.tenantId = tenantId;
+        resource.externalTenantId = tenantId;
         resource.ownerId = userId;
         resource.persistAndFlush();
         resourceId = resource.id;
@@ -56,7 +51,6 @@ public class AuditServiceTest {
         permission.name = "test_audit_read_" + uniqueId;
         permission.description = "Test Audit Read permission";
         permission.isSystemPermission = false;
-        permission.tenantId = tenantId;
         permission.persistAndFlush();
         permissionId = permission.id;
     }
@@ -77,7 +71,7 @@ public class AuditServiceTest {
         assertEquals(userId, log.userId);
         assertEquals(resourceId, log.resourceId);
         assertEquals(permissionId, log.permissionId);
-        assertEquals(tenantId, log.tenantId);
+        assertEquals(tenantId, log.externalTenantId);
         assertNotNull(log.createdAt);
     }
     
@@ -268,9 +262,9 @@ public class AuditServiceTest {
         
         // When
         List<AuditLog> grantLogs = AuditLog.findByActionType(AuditActionType.PERMISSION_GRANTED)
-            .stream().filter(log -> log.tenantId != null && log.tenantId.equals(tenantId)).toList();
+            .stream().filter(log -> log.externalTenantId != null && log.externalTenantId.equals(tenantId)).toList();
         List<AuditLog> accessLogs = AuditLog.findByActionType(AuditActionType.ACCESS_ATTEMPT)
-            .stream().filter(log -> log.tenantId != null && log.tenantId.equals(tenantId)).toList();
+            .stream().filter(log -> log.externalTenantId != null && log.externalTenantId.equals(tenantId)).toList();
         
         // Then
         assertEquals(1, grantLogs.size());
@@ -292,9 +286,9 @@ public class AuditServiceTest {
         
         // When
         List<AuditLog> recentLogs = AuditLog.findByDateRange(yesterday, tomorrow)
-            .stream().filter(log -> log.tenantId != null && log.tenantId.equals(tenantId)).toList();
+            .stream().filter(log -> log.externalTenantId != null && log.externalTenantId.equals(tenantId)).toList();
         List<AuditLog> futureLogs = AuditLog.findByDateRange(tomorrow, tomorrow.plusDays(1))
-            .stream().filter(log -> log.tenantId != null && log.tenantId.equals(tenantId)).toList();
+            .stream().filter(log -> log.externalTenantId != null && log.externalTenantId.equals(tenantId)).toList();
         
         // Then
         assertEquals(1, recentLogs.size());
@@ -312,7 +306,7 @@ public class AuditServiceTest {
         
         // When
         List<AuditLog> failedLogs = AuditLog.findFailedActions()
-            .stream().filter(log -> log.tenantId != null && log.tenantId.equals(tenantId)).toList();
+            .stream().filter(log -> log.externalTenantId != null && log.externalTenantId.equals(tenantId)).toList();
         
         // Then
         assertEquals(2, failedLogs.size());
@@ -336,8 +330,8 @@ public class AuditServiceTest {
         // Then
         assertEquals(1, tenant1Logs.size());
         assertEquals(1, tenant2Logs.size());
-        assertEquals(tenantId, tenant1Logs.get(0).tenantId);
-        assertEquals(otherTenantId, tenant2Logs.get(0).tenantId);
+        assertEquals(tenantId, tenant1Logs.get(0).externalTenantId);
+        assertEquals(otherTenantId, tenant2Logs.get(0).externalTenantId);
     }
     
     @Test

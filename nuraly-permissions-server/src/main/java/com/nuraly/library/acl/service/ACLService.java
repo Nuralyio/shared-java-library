@@ -24,17 +24,16 @@ public class ACLService {
      */
     public boolean hasPermission(UUID userId, UUID resourceId, String permissionName, UUID tenantId) {
         try {
-            User user = User.findById(userId);
             Resource resource = Resource.findById(resourceId);
             Permission permission = Permission.findByName(permissionName);
             
-            if (user == null || resource == null || permission == null) {
+            if (resource == null || permission == null) {
                 auditService.logAccessAttempt(tenantId, userId, resourceId, 
-                    permission != null ? permission.id : null, false, "User, resource, or permission not found");
+                    permission != null ? permission.id : null, false, "Resource or permission not found");
                 return false;
             }
             
-            boolean hasAccess = checkUserPermission(user, resource, permission, tenantId);
+            boolean hasAccess = checkUserPermission(userId, resource, permission, tenantId);
             
             auditService.logAccessAttempt(tenantId, userId, resourceId, permission.id, hasAccess, 
                 hasAccess ? null : "Permission denied");
@@ -104,10 +103,6 @@ public class ACLService {
             throw new IllegalArgumentException("Resource or permission not found");
         }
         
-        if (userId != null && User.findById(userId) == null) {
-            throw new IllegalArgumentException("User not found");
-        }
-        
         if (roleId != null && Role.findById(roleId) == null) {
             throw new IllegalArgumentException("Role not found");
         }
@@ -115,7 +110,7 @@ public class ACLService {
         // Check if grant already exists
         List<ResourceGrant> existingGrants;
         if (userId != null) {
-            existingGrants = ResourceGrant.findByUserAndResource(userId, resourceId);
+            existingGrants = ResourceGrant.findByExternalUserAndResource(userId, resourceId);
         } else {
             existingGrants = ResourceGrant.findByRole(roleId);
         }
@@ -133,12 +128,12 @@ public class ACLService {
         grant.resource = resource;
         grant.permission = permission;
         grant.grantedBy = grantedBy;
-        grant.tenantId = tenantId;
+        grant.externalTenantId = tenantId;
         grant.expiresAt = expiresAt;
         grant.grantType = GrantType.DIRECT;
         
         if (userId != null) {
-            grant.user = User.findById(userId);
+            grant.externalUserId = userId;
         } else {
             grant.role = Role.findById(roleId);
         }
@@ -157,7 +152,7 @@ public class ACLService {
     @Transactional
     public boolean revokePermission(UUID userId, UUID resourceId, UUID permissionId, 
                                   UUID revokedBy, String reason, UUID tenantId) {
-        List<ResourceGrant> grants = ResourceGrant.findByUserAndResource(userId, resourceId);
+        List<ResourceGrant> grants = ResourceGrant.findByExternalUserAndResource(userId, resourceId);
         
         boolean revoked = false;
         for (ResourceGrant grant : grants) {
@@ -252,11 +247,6 @@ public class ACLService {
      * Get all resources accessible by a user
      */
     public List<Resource> getAccessibleResources(UUID userId, UUID tenantId) {
-        User user = User.findById(userId);
-        if (user == null) {
-            return Collections.emptyList();
-        }
-        
         Set<UUID> accessibleResourceIds = new HashSet<>();
         
         // Resources owned by the user
@@ -264,25 +254,14 @@ public class ACLService {
         accessibleResourceIds.addAll(ownedResources.stream().map(r -> r.id).collect(Collectors.toSet()));
         
         // Resources with direct grants
-        List<ResourceGrant> userGrants = ResourceGrant.findByUser(userId);
+        List<ResourceGrant> userGrants = ResourceGrant.findByExternalUser(userId);
         accessibleResourceIds.addAll(userGrants.stream()
             .filter(ResourceGrant::isValid)
             .map(g -> g.resource.id)
             .collect(Collectors.toSet()));
         
-        // Resources through role grants
-        if (user.roles != null) {
-            for (Role role : user.roles) {
-                List<ResourceGrant> roleGrants = ResourceGrant.findByRole(role.id);
-                accessibleResourceIds.addAll(roleGrants.stream()
-                    .filter(ResourceGrant::isValid)
-                    .map(g -> g.resource.id)
-                    .collect(Collectors.toSet()));
-            }
-        }
-        
         // Resources through organization membership
-        List<OrganizationMembership> memberships = OrganizationMembership.findActiveByUser(userId);
+        List<OrganizationMembership> memberships = OrganizationMembership.findActiveByExternalUser(userId);
         for (OrganizationMembership membership : memberships) {
             List<Resource> orgResources = Resource.findByOrganization(membership.organization.id);
             accessibleResourceIds.addAll(orgResources.stream().map(r -> r.id).collect(Collectors.toSet()));
@@ -321,41 +300,27 @@ public class ACLService {
     
     // Private helper methods
     
-    private boolean checkUserPermission(User user, Resource resource, Permission permission, UUID tenantId) {
-        // Ensure tenant isolation - both user and resource must be in the same tenant
-        if (!user.tenantId.equals(tenantId) || !resource.tenantId.equals(tenantId)) {
+    private boolean checkUserPermission(UUID userId, Resource resource, Permission permission, UUID tenantId) {
+        // Ensure tenant isolation - resource must be in the same tenant
+        if (!resource.externalTenantId.equals(tenantId)) {
             return false;
         }
         
         // Check if user is the owner
-        if (user.id.equals(resource.ownerId)) {
+        if (userId.equals(resource.ownerId)) {
             return true;
         }
         
         // Check direct grants
-        List<ResourceGrant> userGrants = ResourceGrant.findByUserAndResource(user.id, resource.id);
+        List<ResourceGrant> userGrants = ResourceGrant.findByExternalUserAndResource(userId, resource.id);
         for (ResourceGrant grant : userGrants) {
             if (grant.permission.id.equals(permission.id) && grant.isValid()) {
                 return true;
             }
         }
         
-        // Check role-based grants
-        if (user.roles != null) {
-            for (Role role : user.roles) {
-                if (role.getAllPermissions().contains(permission)) {
-                    List<ResourceGrant> roleGrants = ResourceGrant.findByRole(role.id);
-                    for (ResourceGrant grant : roleGrants) {
-                        if (grant.resource.id.equals(resource.id) && grant.isValid()) {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        
         // Check organization-level access
-        List<OrganizationMembership> memberships = OrganizationMembership.findActiveByUser(user.id);
+        List<OrganizationMembership> memberships = OrganizationMembership.findActiveByExternalUser(userId);
         for (OrganizationMembership membership : memberships) {
             if (membership.organization.id.equals(resource.organizationId)) {
                 if (membership.role != null && membership.role.getAllPermissions().contains(permission)) {
@@ -365,7 +330,7 @@ public class ACLService {
         }
         
         // Check inherited permissions from parent resources
-        return checkInheritedPermissions(user, resource, permission);
+        return checkInheritedPermissions(userId, resource, permission, tenantId);
     }
     
     private boolean checkAnonymousPermission(Resource resource, Permission permission) {
@@ -386,10 +351,10 @@ public class ACLService {
         }
     }
     
-    private boolean checkInheritedPermissions(User user, Resource resource, Permission permission) {
+    private boolean checkInheritedPermissions(UUID userId, Resource resource, Permission permission, UUID tenantId) {
         Resource parent = resource.parentResource;
         if (parent != null) {
-            return checkUserPermission(user, parent, permission, user.tenantId);
+            return checkUserPermission(userId, parent, permission, tenantId);
         }
         return false;
     }

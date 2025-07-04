@@ -33,11 +33,11 @@ public class Resource extends PanacheEntityBase {
     @Column(name = "external_id")
     public String externalId; // Reference to the actual resource in other systems
     
-    @Column(name = "tenant_id")
-    public UUID tenantId;
+    @Column(name = "external_tenant_id")
+    public UUID externalTenantId;
     
     @Column(name = "owner_id")
-    public UUID ownerId; // User who owns this resource
+    public UUID ownerId; // External User ID who owns this resource
     
     @Column(name = "organization_id")
     public UUID organizationId; // Organization this resource belongs to
@@ -107,8 +107,8 @@ public class Resource extends PanacheEntityBase {
         return find("organizationId", organizationId).list();
     }
     
-    public static List<Resource> findByTenant(UUID tenantId) {
-        return find("tenantId", tenantId).list();
+    public static List<Resource> findByTenant(UUID externalTenantId) {
+        return find("externalTenantId", externalTenantId).list();
     }
     
     public static List<Resource> findPublicResources() {

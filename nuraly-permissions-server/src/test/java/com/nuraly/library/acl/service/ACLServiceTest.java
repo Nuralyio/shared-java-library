@@ -58,21 +58,15 @@ public class ACLServiceTest {
         // Use unique identifiers to avoid conflicts
         String uniqueId = UUID.randomUUID().toString();
         
-        // Create test user (let Hibernate generate the ID)
-        User user = new User();
-        user.username = "testuser_" + uniqueId;
-        user.email = "test" + uniqueId + "@example.com";
-        user.tenantId = tenantId;
-        user.roles = new java.util.HashSet<>(); // Initialize roles collection
-        user.persistAndFlush();
-        userId = user.id; // Update the test ID with the generated one
+        // Use external user ID instead of creating User entity
+        userId = UUID.randomUUID(); // Update the test ID
         
-        // Create test organization (let Hibernate generate the ID)
+        // Create test organization and persist it
         Organization org = new Organization();
         org.name = "Test Organization " + uniqueId;
-        org.tenantId = tenantId;
+        org.externalTenantId = tenantId;
         org.ownerId = userId;
-        org.persistAndFlush();
+        org.persistAndFlush(); // Persist to get the generated ID
         organizationId = org.id; // Update the test ID with the generated one
         
         // Use existing system permission or create one
@@ -82,30 +76,29 @@ public class ACLServiceTest {
             permission.name = "read";
             permission.description = "Read permission";
             permission.isSystemPermission = true;
-            permission.tenantId = null;
-            permission.persistAndFlush();
+            permission.persistAndFlush(); // Persist if creating new
         }
         permissionId = permission.id; // Update the test ID with the found/generated one
         
-        // Create test role (let Hibernate generate the ID)
+        // Create test role and persist it
         Role role = new Role();
         role.name = "Test Role " + uniqueId;
         role.description = "Test role for testing";
-        role.tenantId = tenantId;
+        role.externalTenantId = tenantId;
         role.scope = RoleScope.RESOURCE;
         role.permissions = new java.util.HashSet<>();
         role.permissions.add(permission);
-        role.persistAndFlush();
+        role.persistAndFlush(); // Persist to get the generated ID
         roleId = role.id; // Update the test ID with the generated one
         
-        // Create test resource (let Hibernate generate the ID)
+        // Create test resource and persist it
         Resource resource = new Resource();
         resource.name = "Test Resource " + uniqueId;
         resource.resourceType = "document";
-        resource.tenantId = tenantId;
+        resource.externalTenantId = tenantId;
         resource.ownerId = userId;
         resource.organizationId = organizationId;
-        resource.persistAndFlush();
+        resource.persistAndFlush(); // Persist to get the generated ID
         resourceId = resource.id; // Update the test ID with the generated one
     }
     
@@ -117,19 +110,15 @@ public class ACLServiceTest {
         String uniqueId = UUID.randomUUID().toString();
         UUID testTenantId = UUID.randomUUID();
         
-        // Create test user
-        User user = new User();
-        user.username = "testuser_" + uniqueId;
-        user.email = "test" + uniqueId + "@example.com";
-        user.tenantId = testTenantId;
-        user.persistAndFlush();
+        // Create test user using external user ID
+        UUID testUserId = UUID.randomUUID();
         
         // Create test organization
         Organization org = new Organization();
         org.name = "Test Organization " + uniqueId;
-        org.tenantId = testTenantId;
-        org.ownerId = user.id;
-        org.persistAndFlush();
+        org.externalTenantId = testTenantId;
+        org.ownerId = testUserId;
+        org.persistAndFlush(); // Persist organization first
         
         // Get or create read permission
         Permission permission = Permission.findByName("read");
@@ -138,27 +127,26 @@ public class ACLServiceTest {
             permission.name = "read";
             permission.description = "Read permission";
             permission.isSystemPermission = true;
-            permission.tenantId = null;
-            permission.persistAndFlush();
+            permission.persistAndFlush(); // Persist permission
         }
         
         // Create test resource
         Resource resource = new Resource();
         resource.name = "Test Resource " + uniqueId;
         resource.resourceType = "document";
-        resource.tenantId = testTenantId;
-        resource.ownerId = user.id;
+        resource.externalTenantId = testTenantId;
+        resource.ownerId = testUserId;
         resource.organizationId = org.id;
-        resource.persistAndFlush();
+        resource.persistAndFlush(); // Make sure to persist the resource
         
         // When
         ResourceGrant grant = aclService.grantPermission(
-            user.id, resource.id, permission.id, user.id, testTenantId
+            testUserId, resource.id, permission.id, testUserId, testTenantId
         );
         
         // Then
         assertNotNull(grant);
-        assertEquals(user.id, grant.user.id);
+        assertEquals(testUserId, grant.externalUserId);
         assertEquals(resource.id, grant.resource.id);
         assertEquals(permission.id, grant.permission.id);
         assertEquals(GrantType.DIRECT, grant.grantType);
@@ -174,13 +162,7 @@ public class ACLServiceTest {
         setupTestDataAndCommit();
         
         // Create another user who is not the owner
-        User otherUser = new User();
-        otherUser.username = "otheruser_" + UUID.randomUUID().toString();
-        otherUser.email = "other_" + UUID.randomUUID().toString() + "@example.com";
-        otherUser.tenantId = tenantId;
-        otherUser.roles = new java.util.HashSet<>();
-        otherUser.persist();
-        UUID otherUserId = otherUser.id;
+        UUID otherUserId = UUID.randomUUID();
         
         // Grant read permission to the other user
         aclService.grantPermission(otherUserId, resourceId, permissionId, userId, tenantId);
@@ -198,13 +180,7 @@ public class ACLServiceTest {
         setupTestDataAndCommit();
         
         // Create another user who is not the owner
-        User otherUser = new User();
-        otherUser.username = "otheruser_" + UUID.randomUUID().toString();
-        otherUser.email = "other_" + UUID.randomUUID().toString() + "@example.com";
-        otherUser.tenantId = tenantId;
-        otherUser.roles = new java.util.HashSet<>();
-        otherUser.persist();
-        UUID otherUserId = otherUser.id;
+        UUID otherUserId = UUID.randomUUID();
         
         // Grant permission to the other user (not the owner)
         aclService.grantPermission(otherUserId, resourceId, permissionId, userId, tenantId);
@@ -231,12 +207,7 @@ public class ACLServiceTest {
         assertTrue(aclService.hasPermission(userId, resourceId, "read", tenantId));
         
         // Create another user who is not the owner (let Hibernate generate the ID)
-        User otherUser = new User();
-        otherUser.username = "otheruser_" + UUID.randomUUID().toString();
-        otherUser.email = "other_" + UUID.randomUUID().toString() + "@example.com";
-        otherUser.tenantId = tenantId;
-        otherUser.persist();
-        UUID otherUserId = otherUser.id;
+        UUID otherUserId = UUID.randomUUID();
         
         // Other user should not have access
         assertFalse(aclService.hasPermission(otherUserId, resourceId, "read", tenantId));
@@ -249,17 +220,17 @@ public class ACLServiceTest {
         // Given - setup test data first
         setupTestDataAndCommit();
         
-        // Create user with role (let Hibernate generate the ID)
-        User otherUser = new User();
-        otherUser.username = "roleuser_" + UUID.randomUUID().toString();
-        otherUser.email = "role_" + UUID.randomUUID().toString() + "@example.com";
-        otherUser.tenantId = tenantId;
-        otherUser.roles = new java.util.HashSet<>();
+        // Create user with role assignment through organization membership
+        UUID otherUserId = UUID.randomUUID();
         
-        Role role = Role.findById(roleId);
-        otherUser.roles.add(role);
-        otherUser.persist();
-        UUID otherUserId = otherUser.id;
+        // Create organization membership for the other user with the role
+        OrganizationMembership membership = new OrganizationMembership();
+        membership.organization = Organization.findById(organizationId);
+        membership.externalUserId = otherUserId;
+        membership.role = Role.findById(roleId);
+        membership.externalTenantId = tenantId;
+        membership.isActive = true;
+        membership.persistAndFlush();
         
         // When - grant role permission to resource
         ResourceGrant grant = aclService.grantRolePermission(
@@ -332,12 +303,7 @@ public class ACLServiceTest {
         setupTestDataAndCommit();
         
         // Given - create target user (let Hibernate generate the ID)
-        User targetUser = new User();
-        targetUser.username = "targetuser_" + UUID.randomUUID().toString();
-        targetUser.email = "target_" + UUID.randomUUID().toString() + "@example.com";
-        targetUser.tenantId = tenantId;
-        targetUser.persist();
-        UUID targetUserId = targetUser.id;
+        UUID targetUserId = UUID.randomUUID();
         
         // When - share resource with target user using role
         List<ResourceGrant> grants = aclService.shareResource(
@@ -365,7 +331,7 @@ public class ACLServiceTest {
         Resource additionalResource = new Resource();
         additionalResource.name = "Additional Resource " + UUID.randomUUID().toString();
         additionalResource.resourceType = "document";
-        additionalResource.tenantId = tenantId;
+        additionalResource.externalTenantId = tenantId;
         additionalResource.ownerId = UUID.randomUUID(); // Different owner
         additionalResource.organizationId = organizationId;
         additionalResource.persist();
@@ -394,10 +360,10 @@ public class ACLServiceTest {
         
         ResourceGrant grant = new ResourceGrant();
         grant.resource = Resource.findById(resourceId);
-        grant.user = User.findById(userId);
+        grant.externalUserId = userId;
         grant.permission = Permission.findById(permissionId);
         grant.grantedBy = userId;
-        grant.tenantId = tenantId;
+        grant.externalTenantId = tenantId;
         grant.expiresAt = expiredTime;
         grant.grantType = GrantType.DIRECT;
         grant.persist();
@@ -419,9 +385,8 @@ public class ACLServiceTest {
         Resource otherResource = new Resource();
         otherResource.name = "Other Tenant Resource";
         otherResource.resourceType = "document";
-        otherResource.tenantId = otherTenantId;
+        otherResource.externalTenantId = otherTenantId;
         otherResource.ownerId = userId; // Same user but different tenant
-        otherResource.persistAndFlush();
         UUID otherResourceId = otherResource.id;
         
         // When & Then - user should not have access to other tenant's resource
@@ -438,11 +403,11 @@ public class ACLServiceTest {
         
         // Given - create organization membership with role
         OrganizationMembership membership = new OrganizationMembership();
-        membership.user = User.findById(userId);
+        membership.externalUserId = userId;
         membership.organization = Organization.findById(organizationId);
         membership.role = Role.findById(roleId);
         membership.membershipType = MembershipType.MEMBER;
-        membership.tenantId = tenantId;
+        membership.externalTenantId = tenantId;
         membership.persist();
         
         // When - check access through organization membership
