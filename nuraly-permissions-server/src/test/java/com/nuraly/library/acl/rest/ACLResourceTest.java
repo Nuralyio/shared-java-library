@@ -378,11 +378,10 @@ public class ACLResourceTest {
             .then()
             .statusCode(200);
         
-        // When
+        // When - now uses current user from context instead of path parameter
         createTestRequest()
-            .queryParam("tenantId", tenantId.toString())
             .when()
-            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .get("/api/v1/acl/accessible-resources")
             .then()
             .statusCode(200)
             .body("size()", greaterThan(0));
@@ -410,20 +409,18 @@ public class ACLResourceTest {
         
         // Test with correct resource type
         createTestRequest()
-            .queryParam("tenantId", tenantId.toString())
             .queryParam("resourceType", "document")
             .when()
-            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .get("/api/v1/acl/accessible-resources")
             .then()
             .statusCode(200)
             .body("size()", greaterThan(0));
         
         // Test with incorrect resource type (should return empty)
         createTestRequest()
-            .queryParam("tenantId", tenantId.toString())
             .queryParam("resourceType", "image")
             .when()
-            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .get("/api/v1/acl/accessible-resources")
             .then()
             .statusCode(200)
             .body("size()", equalTo(0));
@@ -451,20 +448,18 @@ public class ACLResourceTest {
         
         // Test with correct permission
         createTestRequest()
-            .queryParam("tenantId", tenantId.toString())
             .queryParam("permission", "read")
             .when()
-            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .get("/api/v1/acl/accessible-resources")
             .then()
             .statusCode(200)
             .body("size()", greaterThan(0));
         
         // Test with incorrect permission (should return empty or fewer results)
         createTestRequest()
-            .queryParam("tenantId", tenantId.toString())
             .queryParam("permission", "delete")
             .when()
-            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .get("/api/v1/acl/accessible-resources")
             .then()
             .statusCode(200);
             // Note: Don't check size since user might be owner and have access anyway
@@ -492,22 +487,20 @@ public class ACLResourceTest {
         
         // Test with both correct filters
         createTestRequest()
-            .queryParam("tenantId", tenantId.toString())
             .queryParam("resourceType", "document")
             .queryParam("permission", "read")
             .when()
-            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .get("/api/v1/acl/accessible-resources")
             .then()
             .statusCode(200)
             .body("size()", greaterThan(0));
         
         // Test with correct resource type but wrong permission
         createTestRequest()
-            .queryParam("tenantId", tenantId.toString())
             .queryParam("resourceType", "document")
             .queryParam("permission", "nonexistent")
             .when()
-            .get("/api/v1/acl/accessible-resources/" + userId.toString())
+            .get("/api/v1/acl/accessible-resources")
             .then()
             .statusCode(200)
             .body("size()", equalTo(0));

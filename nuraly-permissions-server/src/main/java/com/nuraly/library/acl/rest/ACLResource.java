@@ -785,14 +785,14 @@ public class ACLResource {
     }
     
     /**
-     * Get all resources accessible by a user
-     * GET /api/v1/acl/accessible-resources/{userId}
+     * Get all resources accessible by the current authenticated user
+     * GET /api/v1/acl/accessible-resources
      */
     @GET
-    @Path("/accessible-resources/{userId}")
+    @Path("/accessible-resources")
     @Operation(
         summary = "Get accessible resources",
-        description = "Retrieve all resources that a user has access to within a tenant, optionally filtered by resource type and permission"
+        description = "Retrieve all resources that the current authenticated user has access to within a tenant, optionally filtered by resource type and permission"
     )
     @APIResponses({
         @APIResponse(
@@ -806,19 +806,28 @@ public class ACLResource {
         @APIResponse(
             responseCode = "400",
             description = "Bad request - invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
         )
     })
     public Response getAccessibleResources(
-        @Parameter(description = "User ID", required = true)
-        @PathParam("userId") UUID userId, 
-        @Parameter(description = "Tenant ID for filtering resources")
-        @QueryParam("tenantId") UUID tenantId,
         @Parameter(description = "Resource type to filter by (optional)")
         @QueryParam("resourceType") String resourceType,
         @Parameter(description = "Permission name to filter by (optional)")
         @QueryParam("permission") String permissionName) {
         try {
-            List<Resource> resources = aclService.getAccessibleResources(userId, tenantId, resourceType, permissionName);
+            // Get current user from context
+            UUID currentUserId = userContextService.getCurrentUserId();
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            List<Resource> resources = aclService.getAccessibleResources(currentUserId, currentTenantId, resourceType, permissionName);
             return Response.ok(resources).build();
         } catch (Exception e) {
             return createErrorResponse(e);
@@ -939,52 +948,6 @@ public class ACLResource {
                     .entity(new ErrorResponse("Public resource not found or expired"))
                     .build();
             }
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
-    }
-    
-    /**
-     * Example endpoint showing how to use current user context
-     * GET /api/v1/acl/my-resources
-     */
-    @GET
-    @Path("/my-resources")
-    @Operation(
-        summary = "Get my accessible resources",
-        description = "Get resources accessible to the currently authenticated user"
-    )
-    @APIResponses({
-        @APIResponse(
-            responseCode = "200",
-            description = "My resources retrieved successfully",
-            content = @Content(
-                mediaType = MediaType.APPLICATION_JSON,
-                schema = @Schema(implementation = Resource.class, type = SchemaType.ARRAY)
-            )
-        ),
-        @APIResponse(
-            responseCode = "401",
-            description = "Unauthorized - authentication required"
-        )
-    })
-    public Response getMyResources(
-        @Parameter(description = "Resource type to filter by (optional)")
-        @QueryParam("resourceType") String resourceType,
-        @Parameter(description = "Permission name to filter by (optional)")
-        @QueryParam("permission") String permissionName) {
-        try {
-            // Get current user from context
-            UUID currentUserId = userContextService.getCurrentUserId();
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            List<Resource> resources = aclService.getAccessibleResources(currentUserId, currentTenantId, resourceType, permissionName);
-            return Response.ok(resources).build();
         } catch (Exception e) {
             return createErrorResponse(e);
         }
