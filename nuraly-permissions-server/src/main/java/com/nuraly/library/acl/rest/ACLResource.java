@@ -2,8 +2,8 @@ package com.nuraly.library.acl.rest;
 
 import com.nuraly.library.acl.dto.*;
 import com.nuraly.library.acl.model.*;
-import com.nuraly.library.acl.service.ACLService;
-import com.nuraly.library.acl.service.UserContextService;
+import com.nuraly.library.acl.service.*;
+import com.nuraly.library.acl.util.ResponseUtil;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
@@ -39,147 +39,19 @@ public class ACLResource {
     
     @Inject
     UserContextService userContextService;
+    
+    @Inject
+    ACLValidationService validationService;
+    
+    @Inject
+    ResourceManagementService resourceService;
+    
+    @Inject
+    PermissionManagementService permissionService;
+    
+    @Inject
+    PublicResourceService publicResourceService;
 
-    /**
-     * Validates that a resource exists
-     * @param resourceId The resource ID to validate
-     * @return Response with error if resource not found, null if valid
-     */
-    private Response validateResourceExists(String resourceId) {
-        Resource resource = Resource.findById(resourceId);
-        if (resource == null) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                .entity(new ErrorResponse("Resource not found"))
-                .build();
-        }
-        return null;
-    }
-    
-    /**
-     * Validates that the current authenticated user is the owner of a resource or has the required permission
-     * @param resourceId The resource ID
-     * @param permissionName The required permission name (if not owner)
-     * @param skipIfNullTenant Whether to skip check if tenantId is null
-     * @return Response with error if not authorized, null if authorized
-     */
-    private Response validateCurrentUserOwnershipOrPermission(String resourceId, String permissionName, boolean skipIfNullTenant) {
-        UUID currentUserId = userContextService.getCurrentUserId();
-        if (currentUserId == null) {
-            return Response.status(Response.Status.UNAUTHORIZED)
-                .entity(new ErrorResponse("Authentication required"))
-                .build();
-        }
-        
-        UUID currentTenantId = userContextService.getCurrentTenantId();
-        return validateOwnershipOrPermission(currentUserId, resourceId, permissionName, currentTenantId, skipIfNullTenant);
-    }
-    
-    /**
-     * Validates that the current authenticated user is the owner of a resource or has the required permission (no tenant skip option)
-     */
-    private Response validateCurrentUserOwnershipOrPermission(String resourceId, String permissionName) {
-        return validateCurrentUserOwnershipOrPermission(resourceId, permissionName, false);
-    }
-    
-    /**
-     * Validates that the current authenticated user has the required permission on a resource
-     * @param resourceId The resource ID
-     * @param permissionName The required permission name
-     * @param skipIfNullTenant Whether to skip check if tenantId is null
-     * @return Response with error if permission denied, null if authorized
-     */
-    private Response validateCurrentUserPermission(String resourceId, String permissionName, boolean skipIfNullTenant) {
-        UUID currentUserId = userContextService.getCurrentUserId();
-        if (currentUserId == null) {
-            return Response.status(Response.Status.UNAUTHORIZED)
-                .entity(new ErrorResponse("Authentication required"))
-                .build();
-        }
-        
-        UUID currentTenantId = userContextService.getCurrentTenantId();
-        return validatePermission(currentUserId, resourceId, permissionName, currentTenantId, skipIfNullTenant);
-    }
-    
-    /**
-     * Validates that the current authenticated user has the required permission on a resource (no tenant skip option)
-     */
-    private Response validateCurrentUserPermission(String resourceId, String permissionName) {
-        return validateCurrentUserPermission(resourceId, permissionName, false);
-    }
-    
-    /**
-     * Validates that a user is the owner of a resource or has the required permission
-     * @param userId The user ID
-     * @param resourceId The resource ID
-     * @param permissionName The required permission name (if not owner)
-     * @param tenantId The tenant ID
-     * @param skipIfNullTenant Whether to skip check if tenantId is null
-     * @return Response with error if not authorized, null if authorized
-     */
-    private Response validateOwnershipOrPermission(UUID userId, String resourceId, String permissionName, 
-                                                 UUID tenantId, boolean skipIfNullTenant) {
-        // Skip authorization check if tenantId is null and skipIfNullTenant is true
-        if (skipIfNullTenant && tenantId == null) {
-            return null;
-        }
-        
-        // Check if user is the owner of the resource
-        Resource resource = Resource.findById(resourceId);
-        if (resource != null && userId.equals(resource.ownerId)) {
-            return null; // Owner has full access
-        }
-        
-        // If not owner, check for specific permission
-        boolean hasPermission = aclService.hasPermission(userId, resourceId, permissionName, tenantId);
-        
-        if (!hasPermission) {
-            return Response.status(Response.Status.FORBIDDEN)
-                .entity(new ErrorResponse("Access denied: must be owner or have " + permissionName + " permission"))
-                .build();
-        }
-        return null;
-    }
-    
-    /**
-     * Validates that a user is the owner of a resource or has the required permission (no tenant skip option)
-     */
-    private Response validateOwnershipOrPermission(UUID userId, String resourceId, String permissionName, UUID tenantId) {
-        return validateOwnershipOrPermission(userId, resourceId, permissionName, tenantId, false);
-    }
-    
-    /**
-     * Validates that a user has the required permission on a resource
-     * @param userId The user ID
-     * @param resourceId The resource ID
-     * @param permissionName The required permission name
-     * @param tenantId The tenant ID
-     * @param skipIfNullTenant Whether to skip check if tenantId is null
-     * @return Response with error if permission denied, null if authorized
-     */
-    private Response validatePermission(UUID userId, String resourceId, String permissionName, 
-                                      UUID tenantId, boolean skipIfNullTenant) {
-        // Skip authorization check if tenantId is null and skipIfNullTenant is true
-        if (skipIfNullTenant && tenantId == null) {
-            return null;
-        }
-        
-        boolean hasPermission = aclService.hasPermission(userId, resourceId, permissionName, tenantId);
-        
-        if (!hasPermission) {
-            return Response.status(Response.Status.FORBIDDEN)
-                .entity(new ErrorResponse("Access denied: " + permissionName + " permission required"))
-                .build();
-        }
-        return null;
-    }
-    
-    /**
-     * Validates that a user has the required permission on a resource (no tenant skip option)
-     */
-    private Response validatePermission(UUID userId, String resourceId, String permissionName, UUID tenantId) {
-        return validatePermission(userId, resourceId, permissionName, tenantId, false);
-    }
-    
     /**
      * Creates a standardized error response for exceptions
      */
@@ -306,31 +178,24 @@ public class ACLResource {
     public Response grantPermission(
         @Parameter(description = "Grant permission request", required = true)
         GrantPermissionRequest request) {
-        try {
-            // This is the legacy endpoint - we still support the old format for backward compatibility
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            // Validate resource exists
-            Response validationError = validateResourceExists(request.resourceId);
-            if (validationError != null) return validationError;
-            
-            // Check authorization using current user (must be owner or have admin permission)
-            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "admin");
-            if (authError != null) return authError;
-            
-            ResourceGrant grant = aclService.grantPermission(
-                request.userId,
-                request.resourceId,
-                request.permissionId,
-                currentUserId, // Use current user as grantedBy
-                currentTenantId
-            );
-            
-            return Response.ok(grant).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                ResourceGrant grant = aclService.grantPermission(
+                    request.userId,
+                    request.resourceId,
+                    request.permissionId,
+                    currentUserId,
+                    currentTenantId
+                );
+                return Response.ok(grant).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(request.resourceId),
+            () -> validationService.validateCurrentUserOwnershipOrPermission(request.resourceId, "admin")
+        );
     }
     
     /**
@@ -368,36 +233,18 @@ public class ACLResource {
     public Response grantPermissionSimple(
         @Parameter(description = "Grant permission request", required = true)
         SimpleGrantPermissionRequest request) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            // Validate resource exists
-            Response validationError = validateResourceExists(request.resourceId);
-            if (validationError != null) return validationError;
-            
-            // Check authorization (must be owner or have admin permission)
-            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "admin");
-            if (authError != null) return authError;
-            
-            ResourceGrant grant = aclService.grantPermission(
-                request.targetUserId,
-                request.resourceId,
-                request.permissionId,
-                currentUserId,
-                currentTenantId
-            );
-            
-            return Response.ok(grant).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                ResourceGrant grant = permissionService.grantPermission(request, currentUserId, currentTenantId);
+                return Response.ok(grant).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(request.resourceId),
+            () -> validationService.validateCurrentUserOwnershipOrPermission(request.resourceId, "admin")
+        );
     }
     
     /**
@@ -435,36 +282,18 @@ public class ACLResource {
     public Response grantRolePermission(
         @Parameter(description = "Grant role permission request", required = true)
         GrantRolePermissionRequest request) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            // Validate resource exists
-            Response validationError = validateResourceExists(request.resourceId);
-            if (validationError != null) return validationError;
-            
-            // Check authorization (must be owner or have admin permission)
-            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "admin");
-            if (authError != null) return authError;
-            
-            ResourceGrant grant = aclService.grantRolePermission(
-                request.roleId,
-                request.resourceId,
-                request.permissionId,
-                currentUserId,
-                currentTenantId
-            );
-            
-            return Response.ok(grant).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                ResourceGrant grant = permissionService.grantRolePermission(request, currentUserId, currentTenantId);
+                return Response.ok(grant).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(request.resourceId),
+            () -> validationService.validateCurrentUserOwnershipOrPermission(request.resourceId, "admin")
+        );
     }
     
     /**
@@ -502,37 +331,25 @@ public class ACLResource {
     public Response revokePermission(
         @Parameter(description = "Revoke permission request", required = true)
         RevokePermissionRequest request) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            // Validate resource exists
-            Response validationError = validateResourceExists(request.resourceId);
-            if (validationError != null) return validationError;
-            
-            // Check authorization (must be owner or have admin permission)
-            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "admin");
-            if (authError != null) return authError;
-            
-            boolean revoked = aclService.revokePermission(
-                request.userId,
-                request.resourceId,
-                request.permissionId,
-                currentUserId,
-                request.reason,
-                currentTenantId
-            );
-            
-            return Response.ok(new OperationResult(revoked, revoked ? "Permission revoked" : "Permission not found")).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                boolean revoked = aclService.revokePermission(
+                    request.userId,
+                    request.resourceId,
+                    request.permissionId,
+                    currentUserId,
+                    request.reason,
+                    currentTenantId
+                );
+                return Response.ok(new OperationResult(revoked, revoked ? "Permission revoked" : "Permission not found")).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(request.resourceId),
+            () -> validationService.validateCurrentUserOwnershipOrPermission(request.resourceId, "admin")
+        );
     }
     
     /**
@@ -570,37 +387,18 @@ public class ACLResource {
     public Response revokePermissionSimple(
         @Parameter(description = "Revoke permission request", required = true)
         SimpleRevokePermissionRequest request) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            // Validate resource exists
-            Response validationError = validateResourceExists(request.resourceId);
-            if (validationError != null) return validationError;
-            
-            // Check authorization (must be owner or have admin permission)
-            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "admin");
-            if (authError != null) return authError;
-            
-            boolean revoked = aclService.revokePermission(
-                request.targetUserId,
-                request.resourceId,
-                request.permissionId,
-                currentUserId,
-                request.reason,
-                currentTenantId
-            );
-            
-            return Response.ok(new OperationResult(revoked, revoked ? "Permission revoked" : "Permission not found")).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                boolean revoked = permissionService.revokePermission(request, currentUserId, currentTenantId);
+                return Response.ok(new OperationResult(revoked, revoked ? "Permission revoked" : "Permission not found")).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(request.resourceId),
+            () -> validationService.validateCurrentUserOwnershipOrPermission(request.resourceId, "admin")
+        );
     }
     
     /**
@@ -638,36 +436,24 @@ public class ACLResource {
     public Response shareResource(
         @Parameter(description = "Share resource request", required = true)
         ShareResourceRequest request) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            // Validate resource exists
-            Response validationError = validateResourceExists(request.resourceId);
-            if (validationError != null) return validationError;
-            
-            // Check authorization (must be owner or have share permission)
-            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "share");
-            if (authError != null) return authError;
-            
-            List<ResourceGrant> grants = aclService.shareResource(
-                request.resourceId,
-                request.targetUserId,
-                request.roleId,
-                currentUserId,
-                currentTenantId
-            );
-            
-            return Response.ok(grants).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                List<ResourceGrant> grants = aclService.shareResource(
+                    request.resourceId,
+                    request.targetUserId,
+                    request.roleId,
+                    currentUserId,
+                    currentTenantId
+                );
+                return Response.ok(grants).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(request.resourceId),
+            () -> validationService.validateCurrentUserOwnershipOrPermission(request.resourceId, "share")
+        );
     }
     
     /**
@@ -705,35 +491,18 @@ public class ACLResource {
     public Response publishResource(
         @Parameter(description = "Publish resource request", required = true)
         PublishResourceRequest request) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            // Validate resource exists
-            Response validationError = validateResourceExists(request.resourceId);
-            if (validationError != null) return validationError;
-            
-            // Check authorization (must be owner or have publish permission)
-            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "publish");
-            if (authError != null) return authError;
-            
-            aclService.publishResource(
-                request.resourceId,
-                request.permissionNames,
-                currentUserId,
-                currentTenantId
-            );
-            
-            return Response.ok(new OperationResult(true, "Resource published successfully")).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                publicResourceService.publishResource(request, currentUserId, currentTenantId);
+                return Response.ok(new OperationResult(true, "Resource published successfully")).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(request.resourceId),
+            () -> validationService.validateCurrentUserOwnershipOrPermission(request.resourceId, "publish")
+        );
     }
     
     /**
@@ -771,34 +540,18 @@ public class ACLResource {
     public Response unpublishResource(
         @Parameter(description = "Unpublish resource request", required = true)
         UnpublishResourceRequest request) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            // Validate resource exists
-            Response validationError = validateResourceExists(request.resourceId);
-            if (validationError != null) return validationError;
-            
-            // Check authorization (must be owner or have publish permission)
-            Response authError = validateCurrentUserOwnershipOrPermission(request.resourceId, "publish");
-            if (authError != null) return authError;
-            
-            aclService.unpublishResource(
-                request.resourceId,
-                currentUserId,
-                currentTenantId
-            );
-            
-            return Response.ok(new OperationResult(true, "Resource unpublished successfully")).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                publicResourceService.unpublishResource(request, currentUserId, currentTenantId);
+                return Response.ok(new OperationResult(true, "Resource unpublished successfully")).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(request.resourceId),
+            () -> validationService.validateCurrentUserOwnershipOrPermission(request.resourceId, "publish")
+        );
     }
     
     /**
@@ -835,24 +588,15 @@ public class ACLResource {
         @Parameter(description = "Permission name to filter by (optional)")
         @QueryParam("permission") String permissionName) {
         
-        try {
-            // Get current user from context
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            List<Resource> resources = aclService.getAccessibleResources(currentUserId, currentTenantId, resourceType, permissionName);
-            
-            return Response.ok(resources).build();
-        } catch (Exception e) {
-            LOG.errorf("Exception in getAccessibleResources: %s - %s", e.getClass().getSimpleName(), e.getMessage());
-            return createErrorResponse(e);
-        }
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                List<Resource> resources = aclService.getAccessibleResources(currentUserId, currentTenantId, resourceType, permissionName);
+                return Response.ok(resources).build();
+            },
+            () -> validationService.validateAuthentication()
+        );
     }
     
     /**
@@ -1010,53 +754,16 @@ public class ACLResource {
     public Response registerResource(
         @Parameter(description = "Resource registration request", required = true)
         @Valid RegisterResourceRequest request) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            // Additional null checks (though validation should catch these)
-            if (request.name == null || request.name.trim().isEmpty()) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("Resource name is required and cannot be blank"))
-                    .build();
-            }
-            
-            if (request.resourceType == null || request.resourceType.trim().isEmpty()) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("Resource type is required and cannot be blank"))
-                    .build();
-            }
-            
-            if (request.externalId == null || request.externalId.trim().isEmpty()) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("External ID is required and cannot be blank"))
-                    .build();
-            }
-            
-            // Create new resource
-            Resource resource = new Resource();
-            resource.id = UUID.randomUUID().toString(); // Generate unique ID
-            resource.name = request.name.trim();
-            resource.description = request.description != null ? request.description.trim() : null;
-            resource.resourceType = request.resourceType.trim();
-            resource.externalId = request.externalId.trim();
-            resource.externalTenantId = currentTenantId;
-            resource.ownerId = request.ownerId != null ? request.ownerId : currentUserId; // Allow specifying owner or default to current user
-            resource.isActive = true;
-            resource.isPublic = false;
-            
-            resource.persist();
-            
-            return Response.status(Response.Status.CREATED).entity(resource).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                Resource resource = resourceService.registerResource(request, currentUserId, currentTenantId);
+                return Response.status(Response.Status.CREATED).entity(resource).build();
+            },
+            () -> validationService.validateAuthentication()
+        );
     }
     
     /**
@@ -1097,46 +804,19 @@ public class ACLResource {
         @PathParam("resourceId") String resourceId,
         @Parameter(description = "Transfer ownership request", required = true)
         TransferOwnershipRequest request) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            UUID currentTenantId = userContextService.getCurrentTenantId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            // Validate resource exists
-            Resource resource = Resource.findById(resourceId);
-            if (resource == null) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("Resource not found"))
-                    .build();
-            }
-            
-            // Only current owner can transfer ownership
-            if (!currentUserId.equals(resource.ownerId)) {
-                return Response.status(Response.Status.FORBIDDEN)
-                    .entity(new ErrorResponse("Only resource owner can transfer ownership"))
-                    .build();
-            }
-            
-            // Ensure resource is in current tenant
-            if (!resource.externalTenantId.equals(currentTenantId)) {
-                return Response.status(Response.Status.FORBIDDEN)
-                    .entity(new ErrorResponse("Resource not in current tenant"))
-                    .build();
-            }
-            
-            // Transfer ownership
-            resource.ownerId = request.newOwnerId;
-            resource.persist();
-            
-            return Response.ok(resource).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                Resource resource = resourceService.transferOwnership(resourceId, request.newOwnerId, currentUserId, currentTenantId);
+                return Response.ok(resource).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(resourceId),
+            () -> validationService.validateCurrentUserIsOwner(resourceId, "Only resource owner can transfer ownership"),
+            () -> validationService.validateResourceInCurrentTenant(resourceId)
+        );
     }
     
     /**
@@ -1177,40 +857,16 @@ public class ACLResource {
         @PathParam("resourceId") String resourceId,
         @Parameter(description = "Update resource request", required = true)
         UpdateResourceRequest request) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            // Check authorization (must be owner or have admin permission)
-            Response authError = validateCurrentUserOwnershipOrPermission(resourceId, "admin");
-            if (authError != null) return authError;
-            
-            Resource resource = Resource.findById(resourceId);
-            if (resource == null) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("Resource not found"))
-                    .build();
-            }
-            
-            // Update allowed fields
-            if (request.name != null) {
-                resource.name = request.name;
-            }
-            if (request.description != null) {
-                resource.description = request.description;
-            }
-            
-            resource.persist();
-            
-            return Response.ok(resource).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                Resource resource = resourceService.updateResource(resourceId, request);
+                return Response.ok(resource).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(resourceId),
+            () -> validationService.validateCurrentUserOwnershipOrPermission(resourceId, "admin")
+        );
     }
     
     /**
@@ -1249,36 +905,16 @@ public class ACLResource {
     public Response deleteResource(
         @Parameter(description = "Resource ID", required = true)
         @PathParam("resourceId") String resourceId) {
-        try {
-            UUID currentUserId = userContextService.getCurrentUserId();
-            
-            if (currentUserId == null) {
-                return Response.status(Response.Status.UNAUTHORIZED)
-                    .entity(new ErrorResponse("Authentication required"))
-                    .build();
-            }
-            
-            Resource resource = Resource.findById(resourceId);
-            if (resource == null) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(new ErrorResponse("Resource not found"))
-                    .build();
-            }
-            
-            // Only owner can delete resource
-            if (!currentUserId.equals(resource.ownerId)) {
-                return Response.status(Response.Status.FORBIDDEN)
-                    .entity(new ErrorResponse("Only resource owner can delete resource"))
-                    .build();
-            }
-            
-            // Soft delete - deactivate instead of hard delete to preserve audit trail
-            resource.isActive = false;
-            resource.persist();
-            
-            return Response.ok(new OperationResult(true, "Resource deleted successfully")).build();
-        } catch (Exception e) {
-            return createErrorResponse(e);
-        }
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                resourceService.deleteResource(resourceId, currentUserId);
+                return Response.ok(new OperationResult(true, "Resource deleted successfully")).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(resourceId),
+            () -> validationService.validateCurrentUserIsOwner(resourceId, "Only resource owner can delete resource")
+        );
     }
 }
