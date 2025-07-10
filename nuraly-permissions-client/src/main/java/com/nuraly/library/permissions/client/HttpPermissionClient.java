@@ -4,9 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nuraly.library.permissions.client.model.AccessibleResourcesResponse;
 import com.nuraly.library.permissions.client.model.CreateResourceRequest;
 import com.nuraly.library.permissions.client.model.CreateResourceResponse;
+import com.nuraly.library.permissions.client.model.UpdateResourceRequest;
+import com.nuraly.library.permissions.client.model.SetParentResourceRequest;
+import com.nuraly.library.permissions.client.model.ResourceResponse;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.annotation.PostConstruct;
 import jakarta.inject.Inject;
+import jakarta.enterprise.inject.spi.CDI;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.config.ConfigProvider;
 
@@ -442,6 +446,203 @@ public class HttpPermissionClient implements PermissionClient {
             }
         } catch (Exception e) {
             throw new RuntimeException("Error creating resource: " + e.getMessage(), e);
+        }
+    }
+    
+    @Override
+    public ResourceResponse updateResource(String resourceId, UpdateResourceRequest request) {
+        try {
+            String jsonBody = objectMapper.writeValueAsString(request);
+            String url = permissionsServiceUrl + "/api/v1/acl/resources/" + resourceId;
+            
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonBody));
+            
+            // Add user context headers
+            if (userContextService == null) {
+                // Try to get from CDI if not injected (for non-CDI environments)
+                try {
+                    userContextService = jakarta.enterprise.inject.spi.CDI.current().select(UserContextService.class).get();
+                } catch (Exception cdiEx) {
+                    throw new RuntimeException("Cannot access user context service", cdiEx);
+                }
+            }
+            
+            String userId = userContextService.getCurrentUserId();
+            String tenantId = userContextService.getCurrentTenantId();
+            
+            if (userId != null) {
+                String userHeaderValue;
+                if (tenantId != null) {
+                    userHeaderValue = "{\"uuid\":\"" + userId + "\",\"tenantId\":\"" + tenantId + "\"}";
+                } else {
+                    userHeaderValue = "{\"uuid\":\"" + userId + "\"}";
+                }
+                requestBuilder.header("X-USER", userHeaderValue);
+            }
+            
+            HttpRequest httpRequest = requestBuilder.build();
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() == 200) {
+                return objectMapper.readValue(response.body(), ResourceResponse.class);
+            } else {
+                String errorMsg = "Failed to update resource: HTTP " + response.statusCode() + " - " + response.body();
+                throw new RuntimeException(errorMsg);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error updating resource: " + e.getMessage(), e);
+        }
+    }
+    
+    @Override
+    public ResourceResponse setResourceParent(String resourceId, SetParentResourceRequest request) {
+        try {
+            String jsonBody = objectMapper.writeValueAsString(request);
+            String url = permissionsServiceUrl + "/api/v1/acl/resources/" + resourceId + "/parent";
+            
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonBody));
+            
+            // Add user context headers
+            if (userContextService == null) {
+                // Try to get from CDI if not injected (for non-CDI environments)
+                try {
+                    userContextService = jakarta.enterprise.inject.spi.CDI.current().select(UserContextService.class).get();
+                } catch (Exception cdiEx) {
+                    throw new RuntimeException("Cannot access user context service", cdiEx);
+                }
+            }
+            
+            String userId = userContextService.getCurrentUserId();
+            String tenantId = userContextService.getCurrentTenantId();
+            
+            if (userId != null) {
+                String userHeaderValue;
+                if (tenantId != null) {
+                    userHeaderValue = "{\"uuid\":\"" + userId + "\",\"tenantId\":\"" + tenantId + "\"}";
+                } else {
+                    userHeaderValue = "{\"uuid\":\"" + userId + "\"}";
+                }
+                requestBuilder.header("X-USER", userHeaderValue);
+            }
+            
+            HttpRequest httpRequest = requestBuilder.build();
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() == 200) {
+                return objectMapper.readValue(response.body(), ResourceResponse.class);
+            } else {
+                String errorMsg = "Failed to set resource parent: HTTP " + response.statusCode() + " - " + response.body();
+                throw new RuntimeException(errorMsg);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error setting resource parent: " + e.getMessage(), e);
+        }
+    }
+    
+    @Override
+    public ResourceResponse removeResourceParent(String resourceId, String reason) {
+        try {
+            // Create request body with null parentResourceId to remove parent
+            SetParentResourceRequest request = new SetParentResourceRequest(null, reason);
+            String jsonBody = objectMapper.writeValueAsString(request);
+            String url = permissionsServiceUrl + "/api/v1/acl/resources/" + resourceId + "/parent";
+            
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonBody));
+            
+            // Add user context headers
+            if (userContextService == null) {
+                // Try to get from CDI if not injected (for non-CDI environments)
+                try {
+                    userContextService = jakarta.enterprise.inject.spi.CDI.current().select(UserContextService.class).get();
+                } catch (Exception cdiEx) {
+                    throw new RuntimeException("Cannot access user context service", cdiEx);
+                }
+            }
+            
+            String userId = userContextService.getCurrentUserId();
+            String tenantId = userContextService.getCurrentTenantId();
+            
+            if (userId != null) {
+                String userHeaderValue;
+                if (tenantId != null) {
+                    userHeaderValue = "{\"uuid\":\"" + userId + "\",\"tenantId\":\"" + tenantId + "\"}";
+                } else {
+                    userHeaderValue = "{\"uuid\":\"" + userId + "\"}";
+                }
+                requestBuilder.header("X-USER", userHeaderValue);
+            }
+            
+            HttpRequest httpRequest = requestBuilder.build();
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() == 200) {
+                return objectMapper.readValue(response.body(), ResourceResponse.class);
+            } else {
+                String errorMsg = "Failed to remove resource parent: HTTP " + response.statusCode() + " - " + response.body();
+                throw new RuntimeException(errorMsg);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error removing resource parent: " + e.getMessage(), e);
+        }
+    }
+    
+    @Override
+    public List<ResourceResponse> getChildResources(String parentResourceId) {
+        try {
+            String url = permissionsServiceUrl + "/api/v1/acl/resources/" + parentResourceId + "/children";
+            
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .GET();
+            
+            // Add user context headers
+            if (userContextService == null) {
+                // Try to get from CDI if not injected (for non-CDI environments)
+                try {
+                    userContextService = jakarta.enterprise.inject.spi.CDI.current().select(UserContextService.class).get();
+                } catch (Exception cdiEx) {
+                    throw new RuntimeException("Cannot access user context service", cdiEx);
+                }
+            }
+            
+            String userId = userContextService.getCurrentUserId();
+            String tenantId = userContextService.getCurrentTenantId();
+            
+            if (userId != null) {
+                String userHeaderValue;
+                if (tenantId != null) {
+                    userHeaderValue = "{\"uuid\":\"" + userId + "\",\"tenantId\":\"" + tenantId + "\"}";
+                } else {
+                    userHeaderValue = "{\"uuid\":\"" + userId + "\"}";
+                }
+                requestBuilder.header("X-USER", userHeaderValue);
+            }
+            
+            HttpRequest httpRequest = requestBuilder.build();
+            HttpResponse<String> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() == 200) {
+                return objectMapper.readValue(response.body(), 
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, ResourceResponse.class));
+            } else {
+                String errorMsg = "Failed to get child resources: HTTP " + response.statusCode() + " - " + response.body();
+                throw new RuntimeException(errorMsg);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Error getting child resources: " + e.getMessage(), e);
         }
     }
 }

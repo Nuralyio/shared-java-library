@@ -917,4 +917,100 @@ public class ACLResource {
             () -> validationService.validateCurrentUserIsOwner(resourceId, "Only resource owner can delete resource")
         );
     }
+    
+    /**
+     * Set or update parent resource for hierarchical relationships
+     * PUT /api/v1/acl/resources/{resourceId}/parent
+     */
+    @PUT
+    @Path("/resources/{resourceId}/parent")
+    @Transactional
+    @Operation(
+        summary = "Set parent resource",
+        description = "Set or update parent resource for hierarchical relationships"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Parent resource updated successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = Resource.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parent"
+        ),
+        @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions to modify hierarchy"
+        )
+    })
+    public Response setParentResource(
+        @Parameter(description = "Resource ID", required = true)
+        @PathParam("resourceId") String resourceId,
+        @Parameter(description = "Set parent resource request", required = true)
+        @Valid SetParentResourceRequest request) {
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentUserId = userContextService.getCurrentUserId();
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                Resource resource = resourceService.setParentResource(resourceId, request, currentUserId, currentTenantId);
+                return Response.ok(resource).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(resourceId),
+            () -> validationService.validateCurrentUserOwnershipOrPermission(resourceId, "admin")
+        );
+    }
+    
+    /**
+     * Get child resources for a given resource
+     * GET /api/v1/acl/resources/{resourceId}/children
+     */
+    @GET
+    @Path("/resources/{resourceId}/children")
+    @Operation(
+        summary = "Get child resources",
+        description = "Get all child resources in the hierarchy for a given resource"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Child resources retrieved successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = Resource.class, type = SchemaType.ARRAY)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found"
+        ),
+        @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        )
+    })
+    public Response getResourceChildren(
+        @Parameter(description = "Resource ID", required = true)
+        @PathParam("resourceId") String resourceId) {
+        
+        return ResponseUtil.executeWithValidation(
+            () -> {
+                UUID currentTenantId = userContextService.getCurrentTenantId();
+                List<Resource> children = resourceService.getResourceChildren(resourceId, currentTenantId);
+                return Response.ok(children).build();
+            },
+            () -> validationService.validateAuthentication(),
+            () -> validationService.validateResourceExists(resourceId),
+            () -> validationService.validateResourceInCurrentTenant(resourceId)
+        );
+    }
 }

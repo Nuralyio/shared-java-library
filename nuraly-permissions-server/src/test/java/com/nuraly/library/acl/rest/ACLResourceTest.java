@@ -28,11 +28,11 @@ public class ACLResourceTest {
     @Inject
     EntityManager em;
     
-    private UUID tenantId;
-    private UUID userId;
-    private String resourceId;
-    private UUID permissionId;
-    private UUID roleId;
+    protected UUID tenantId;
+    protected UUID userId;
+    protected String resourceId;
+    protected UUID permissionId;
+    protected UUID roleId;
     
     @Transactional
     public void setupTestDataAndCommit() {
@@ -921,6 +921,7 @@ class TestRegisterResourceRequest {
     public String resourceType;
     public String externalId;
     public UUID ownerId;
+    public String parentResourceId;
 }
 
 class TestTransferOwnershipRequest {
@@ -931,4 +932,5 @@ class TestTransferOwnershipRequest {
 class TestUpdateResourceRequest {
     public String name;
     public String description;
+    public String parentResourceId;
 }

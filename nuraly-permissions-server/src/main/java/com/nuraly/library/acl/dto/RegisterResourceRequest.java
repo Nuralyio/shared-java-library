@@ -23,4 +23,7 @@ public class RegisterResourceRequest {
     
     @Schema(description = "Owner user ID - if not specified, current user becomes owner")
     public UUID ownerId;
+    
+    @Schema(description = "Parent resource ID for hierarchical resources - optional")
+    public String parentResourceId;
 }

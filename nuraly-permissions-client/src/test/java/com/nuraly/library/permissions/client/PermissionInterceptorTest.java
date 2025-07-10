@@ -3,6 +3,9 @@ package com.nuraly.library.permissions.client;
 import com.nuraly.library.permissions.client.model.AccessibleResourcesResponse;
 import com.nuraly.library.permissions.client.model.CreateResourceRequest;
 import com.nuraly.library.permissions.client.model.CreateResourceResponse;
+import com.nuraly.library.permissions.client.model.UpdateResourceRequest;
+import com.nuraly.library.permissions.client.model.SetParentResourceRequest;
+import com.nuraly.library.permissions.client.model.ResourceResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -202,6 +205,36 @@ class PermissionInterceptorTest {
         @Override
         public CreateResourceResponse createResource(CreateResourceRequest request) {
             return new CreateResourceResponse(request.getResourceId(), request.getResourceType(), request.getTenantId(), request.getOwnerId(), true);
+        }
+
+        @Override
+        public ResourceResponse updateResource(String resourceId, UpdateResourceRequest request) {
+            ResourceResponse response = new ResourceResponse();
+            response.setId(resourceId);
+            response.setName(request.getName());
+            response.setDescription(request.getDescription());
+            return response;
+        }
+
+        @Override
+        public ResourceResponse setResourceParent(String resourceId, SetParentResourceRequest request) {
+            ResourceResponse response = new ResourceResponse();
+            response.setId(resourceId);
+            response.setParentResourceId(request.getParentResourceId());
+            return response;
+        }
+
+        @Override
+        public ResourceResponse removeResourceParent(String resourceId, String reason) {
+            ResourceResponse response = new ResourceResponse();
+            response.setId(resourceId);
+            response.setParentResourceId(null);
+            return response;
+        }
+
+        @Override
+        public List<ResourceResponse> getChildResources(String parentResourceId) {
+            return Collections.emptyList();
         }
 
         public void setReturnValue(boolean returnValue) {

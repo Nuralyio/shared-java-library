@@ -3,6 +3,9 @@ package com.nuraly.library.permissions.client;
 import com.nuraly.library.permissions.client.model.AccessibleResourcesResponse;
 import com.nuraly.library.permissions.client.model.CreateResourceRequest;
 import com.nuraly.library.permissions.client.model.CreateResourceResponse;
+import com.nuraly.library.permissions.client.model.UpdateResourceRequest;
+import com.nuraly.library.permissions.client.model.SetParentResourceRequest;
+import com.nuraly.library.permissions.client.model.ResourceResponse;
 import java.util.List;
 
 /**
@@ -143,4 +146,45 @@ public interface PermissionClient {
      * @throws RuntimeException if resource creation fails (for other implementations)
      */
     CreateResourceResponse createResource(CreateResourceRequest request);
+    
+    /**
+     * Update an existing resource's properties including name, description, and parent relationships.
+     * 
+     * @param resourceId The ID of the resource to update
+     * @param request UpdateResourceRequest containing the fields to update
+     * @return ResourceResponse with the updated resource information
+     * @throws RuntimeException if the update fails
+     */
+    ResourceResponse updateResource(String resourceId, UpdateResourceRequest request);
+    
+    /**
+     * Set the parent resource for an existing resource.
+     * This creates or updates a parent-child relationship.
+     * 
+     * @param resourceId The ID of the child resource
+     * @param request SetParentResourceRequest containing the parent resource ID and optional reason
+     * @return ResourceResponse with the updated resource information
+     * @throws RuntimeException if setting the parent fails
+     */
+    ResourceResponse setResourceParent(String resourceId, SetParentResourceRequest request);
+    
+    /**
+     * Remove the parent resource from an existing resource.
+     * This breaks the parent-child relationship.
+     * 
+     * @param resourceId The ID of the resource to remove the parent from
+     * @param reason Optional reason for removing the parent
+     * @return ResourceResponse with the updated resource information
+     * @throws RuntimeException if removing the parent fails
+     */
+    ResourceResponse removeResourceParent(String resourceId, String reason);
+    
+    /**
+     * Get all child resources of a given parent resource.
+     * 
+     * @param parentResourceId The ID of the parent resource
+     * @return List of ResourceResponse objects representing the child resources
+     * @throws RuntimeException if fetching children fails
+     */
+    List<ResourceResponse> getChildResources(String parentResourceId);
 }

@@ -9,4 +9,7 @@ public class UpdateResourceRequest {
     
     @Schema(description = "New resource description")
     public String description;
+    
+    @Schema(description = "Parent resource ID for hierarchical resources - set to null to remove parent")
+    public String parentResourceId;
 }

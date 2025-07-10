@@ -18,6 +18,7 @@ public class CreateResourceRequest {
     private String externalId; // Maps to the server's externalId field
     private String tenantId;
     private String ownerId;
+    private String parentResourceId; // For hierarchical resources
     private Map<String, Object> metadata;
     
     public CreateResourceRequest() {
@@ -47,6 +48,16 @@ public class CreateResourceRequest {
         this.externalId = externalId;
         this.tenantId = tenantId;
         this.ownerId = ownerId;
+    }
+    
+    public CreateResourceRequest(String resourceId, String name, String resourceType, String externalId, String tenantId, String ownerId, String parentResourceId) {
+        this.resourceId = resourceId;
+        this.name = name;
+        this.resourceType = resourceType;
+        this.externalId = externalId;
+        this.tenantId = tenantId;
+        this.ownerId = ownerId;
+        this.parentResourceId = parentResourceId;
     }
     
     /**
@@ -174,6 +185,19 @@ public class CreateResourceRequest {
         return this;
     }
     
+    public String getParentResourceId() {
+        return parentResourceId;
+    }
+    
+    public void setParentResourceId(String parentResourceId) {
+        this.parentResourceId = parentResourceId;
+    }
+    
+    public CreateResourceRequest withParentResourceId(String parentResourceId) {
+        this.parentResourceId = parentResourceId;
+        return this;
+    }
+    
     public Map<String, Object> getMetadata() {
         return metadata;
     }
@@ -212,12 +236,13 @@ public class CreateResourceRequest {
                Objects.equals(externalId, that.externalId) &&
                Objects.equals(tenantId, that.tenantId) &&
                Objects.equals(ownerId, that.ownerId) &&
+               Objects.equals(parentResourceId, that.parentResourceId) &&
                Objects.equals(metadata, that.metadata);
     }
     
     @Override
     public int hashCode() {
-        return Objects.hash(resourceId, name, resourceType, externalId, tenantId, ownerId, metadata);
+        return Objects.hash(resourceId, name, resourceType, externalId, tenantId, ownerId, parentResourceId, metadata);
     }
     
     @Override
@@ -229,6 +254,7 @@ public class CreateResourceRequest {
                 ", externalId='" + externalId + '\'' +
                 ", tenantId='" + tenantId + '\'' +
                 ", ownerId='" + ownerId + '\'' +
+                ", parentResourceId='" + parentResourceId + '\'' +
                 ", metadata=" + metadata +
                 '}';
     }

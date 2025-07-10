@@ -3,6 +3,9 @@ package com.nuraly.library.permissions.client;
 import com.nuraly.library.permissions.client.model.AccessibleResourcesResponse;
 import com.nuraly.library.permissions.client.model.CreateResourceRequest;
 import com.nuraly.library.permissions.client.model.CreateResourceResponse;
+import com.nuraly.library.permissions.client.model.UpdateResourceRequest;
+import com.nuraly.library.permissions.client.model.SetParentResourceRequest;
+import com.nuraly.library.permissions.client.model.ResourceResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.util.Collections;
@@ -193,8 +196,86 @@ class HttpPermissionClientTest {
             public CreateResourceResponse createResource(CreateResourceRequest request) {
                 return new CreateResourceResponse(request.getResourceId(), request.getResourceType(), request.getTenantId(), request.getOwnerId(), true);
             }
+
+            @Override
+            public ResourceResponse updateResource(String resourceId, UpdateResourceRequest request) {
+                ResourceResponse response = new ResourceResponse();
+                response.setId(resourceId);
+                response.setName(request.getName());
+                response.setDescription(request.getDescription());
+                return response;
+            }
+
+            @Override
+            public ResourceResponse setResourceParent(String resourceId, SetParentResourceRequest request) {
+                ResourceResponse response = new ResourceResponse();
+                response.setId(resourceId);
+                response.setParentResourceId(request.getParentResourceId());
+                return response;
+            }
+
+            @Override
+            public ResourceResponse removeResourceParent(String resourceId, String reason) {
+                ResourceResponse response = new ResourceResponse();
+                response.setId(resourceId);
+                response.setParentResourceId(null);
+                return response;
+            }
+
+            @Override
+            public List<ResourceResponse> getChildResources(String parentResourceId) {
+                return Collections.emptyList();
+            }
+
+            // ...existing code...
         };
         
         assertTrue(mockClient.isHealthy(), "Default isHealthy should return true");
+    }
+
+    @Test
+    void testUpdateResourceWithInvalidUrl() {
+        // Use an invalid URL to test error handling
+        HttpPermissionClient clientWithInvalidUrl = new HttpPermissionClient("http://invalid-host:9999", 1);
+        
+        // Should throw RuntimeException when service is unreachable
+        assertThrows(RuntimeException.class, () -> {
+            clientWithInvalidUrl.updateResource("resource123", 
+                new UpdateResourceRequest("Updated Name", "Updated Description"));
+        }, "Should throw RuntimeException when service is unreachable");
+    }
+
+    @Test
+    void testSetResourceParentWithInvalidUrl() {
+        // Use an invalid URL to test error handling
+        HttpPermissionClient clientWithInvalidUrl = new HttpPermissionClient("http://invalid-host:9999", 1);
+        
+        // Should throw RuntimeException when service is unreachable
+        assertThrows(RuntimeException.class, () -> {
+            clientWithInvalidUrl.setResourceParent("resource123", 
+                new SetParentResourceRequest("parent456", "Test reason"));
+        }, "Should throw RuntimeException when service is unreachable");
+    }
+
+    @Test
+    void testRemoveResourceParentWithInvalidUrl() {
+        // Use an invalid URL to test error handling
+        HttpPermissionClient clientWithInvalidUrl = new HttpPermissionClient("http://invalid-host:9999", 1);
+        
+        // Should throw RuntimeException when service is unreachable
+        assertThrows(RuntimeException.class, () -> {
+            clientWithInvalidUrl.removeResourceParent("resource123", "Test reason");
+        }, "Should throw RuntimeException when service is unreachable");
+    }
+
+    @Test
+    void testGetChildResourcesWithInvalidUrl() {
+        // Use an invalid URL to test error handling
+        HttpPermissionClient clientWithInvalidUrl = new HttpPermissionClient("http://invalid-host:9999", 1);
+        
+        // Should throw RuntimeException when service is unreachable
+        assertThrows(RuntimeException.class, () -> {
+            clientWithInvalidUrl.getChildResources("parent123");
+        }, "Should throw RuntimeException when service is unreachable");
     }
 }
