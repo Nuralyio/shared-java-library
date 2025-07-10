@@ -30,7 +30,7 @@ public class ACLResourceTest {
     
     private UUID tenantId;
     private UUID userId;
-    private UUID resourceId;
+    private String resourceId;
     private UUID permissionId;
     private UUID roleId;
     
@@ -66,8 +66,9 @@ public class ACLResourceTest {
         role.persistAndFlush();
         roleId = role.id;
         
-        // Create resource (let Hibernate generate the ID)
+        // Create resource 
         Resource resource = new Resource();
+        resource.id = "test-resource-" + uniqueId;
         resource.name = "Test Resource " + uniqueId;
         resource.resourceType = "document";
         resource.externalTenantId = tenantId;
@@ -145,8 +146,6 @@ public class ACLResourceTest {
         request.userId = userId;
         request.resourceId = resourceId;
         request.permissionId = permissionId;
-        request.grantedBy = userId; // Add the missing grantedBy field
-        request.tenantId = tenantId;
         
         // When
         Response response = createTestRequest()
@@ -174,8 +173,6 @@ public class ACLResourceTest {
         grantRequest.userId = userId;
         grantRequest.resourceId = resourceId;
         grantRequest.permissionId = permissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = tenantId;
         
         // Grant permission first
         Response grantResponse = createTestRequest()
@@ -212,8 +209,7 @@ public class ACLResourceTest {
         grantRequest.userId = userId;
         grantRequest.resourceId = resourceId;
         grantRequest.permissionId = permissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(grantRequest)
@@ -227,9 +223,9 @@ public class ACLResourceTest {
         revokeRequest.userId = userId;
         revokeRequest.resourceId = resourceId;
         revokeRequest.permissionId = permissionId;
-        revokeRequest.revokedBy = userId;
+
         revokeRequest.reason = "Testing revocation";
-        revokeRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(revokeRequest)
@@ -245,11 +241,10 @@ public class ACLResourceTest {
     public void testPublishResourceEndpoint() {
         setupTestDataAndCommit();
         // When
-        PublishResourceRequest publishRequest = new PublishResourceRequest();
+        TestPublishResourceRequest publishRequest = new TestPublishResourceRequest();
         publishRequest.resourceId = resourceId;
-        publishRequest.permissionNames = Arrays.asList("read"); // Only use existing permission
-        publishRequest.publishedBy = userId;
-        publishRequest.tenantId = tenantId;
+        publishRequest.permissionNames = Arrays.asList("read");
+
         
         createTestRequest()
             .log().headers() // Log request headers
@@ -268,11 +263,10 @@ public class ACLResourceTest {
     public void testUnpublishResourceEndpoint() {
         setupTestDataAndCommit();
         // Given - publish resource first
-        PublishResourceRequest publishRequest = new PublishResourceRequest();
+        TestPublishResourceRequest publishRequest = new TestPublishResourceRequest();
         publishRequest.resourceId = resourceId;
         publishRequest.permissionNames = Arrays.asList("read");
-        publishRequest.publishedBy = userId;
-        publishRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(publishRequest)
@@ -282,10 +276,9 @@ public class ACLResourceTest {
             .statusCode(200);
         
         // When - unpublish resource
-        UnpublishResourceRequest unpublishRequest = new UnpublishResourceRequest();
+        TestUnpublishResourceRequest unpublishRequest = new TestUnpublishResourceRequest();
         unpublishRequest.resourceId = resourceId;
-        unpublishRequest.unpublishedBy = userId;
-        unpublishRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(unpublishRequest)
@@ -301,11 +294,10 @@ public class ACLResourceTest {
     public void testValidatePublicLinkEndpoint() {
         setupTestDataAndCommit();
         // Given - publish resource first (simplified test)
-        PublishResourceRequest publishRequest = new PublishResourceRequest();
+        TestPublishResourceRequest publishRequest = new TestPublishResourceRequest();
         publishRequest.resourceId = resourceId;
-        publishRequest.permissionNames = Arrays.asList("read"); // Only use existing permission
-        publishRequest.publishedBy = userId;
-        publishRequest.tenantId = tenantId;
+        publishRequest.permissionNames = Arrays.asList("read");
+
         
         createTestRequest()
             .body(publishRequest)
@@ -344,8 +336,7 @@ public class ACLResourceTest {
         shareRequest.resourceId = resourceId;
         shareRequest.targetUserId = targetUserId;
         shareRequest.roleId = viewerRole.id; // Use system role instead of custom role
-        shareRequest.sharedBy = userId;
-        shareRequest.tenantId = tenantId;
+
 
         // The test may fail due to transaction isolation issues between test setup and the API call
         // Accept either 200 (success) or 400 (resource/permission not found due to isolation)
@@ -367,8 +358,7 @@ public class ACLResourceTest {
         grantRequest.userId = userId;
         grantRequest.resourceId = resourceId;
         grantRequest.permissionId = permissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(grantRequest)
@@ -396,8 +386,7 @@ public class ACLResourceTest {
         grantRequest.userId = userId;
         grantRequest.resourceId = resourceId;
         grantRequest.permissionId = permissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(grantRequest)
@@ -435,8 +424,7 @@ public class ACLResourceTest {
         grantRequest.userId = userId;
         grantRequest.resourceId = resourceId;
         grantRequest.permissionId = permissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(grantRequest)
@@ -474,8 +462,7 @@ public class ACLResourceTest {
         grantRequest.userId = userId;
         grantRequest.resourceId = resourceId;
         grantRequest.permissionId = permissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(grantRequest)
@@ -514,8 +501,7 @@ public class ACLResourceTest {
         grantRequest.userId = userId;
         grantRequest.resourceId = resourceId;
         grantRequest.permissionId = permissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(grantRequest)
@@ -542,8 +528,7 @@ public class ACLResourceTest {
         grantRequest.userId = userId;
         grantRequest.resourceId = resourceId;
         grantRequest.permissionId = permissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(grantRequest)
@@ -570,8 +555,7 @@ public class ACLResourceTest {
         grantRequest.userId = userId;
         grantRequest.resourceId = resourceId;
         grantRequest.permissionId = permissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = null; // Missing tenant ID
+
         
         given()
             .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\"}") // No tenantId in X-USER header
@@ -588,14 +572,13 @@ public class ACLResourceTest {
     @DisplayName("Should handle invalid resource ID")
     public void testInvalidResourceId() {
         setupTestDataAndCommit();
-        UUID invalidResourceId = UUID.randomUUID();
+        String invalidResourceId = "invalid-resource-id";
         
         GrantPermissionRequest grantRequest = new GrantPermissionRequest();
         grantRequest.userId = userId;
         grantRequest.resourceId = invalidResourceId;
         grantRequest.permissionId = permissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(grantRequest)
@@ -615,8 +598,7 @@ public class ACLResourceTest {
         grantRequest.userId = userId;
         grantRequest.resourceId = resourceId;
         grantRequest.permissionId = invalidPermissionId;
-        grantRequest.grantedBy = userId;
-        grantRequest.tenantId = tenantId;
+
         
         createTestRequest()
             .body(grantRequest)
@@ -649,51 +631,304 @@ public class ACLResourceTest {
             .statusCode(200)
             .body("hasPermission", is(false));
     }
+    
+    // ============================================
+    // RESOURCE MANAGEMENT ENDPOINT TESTS
+    // ============================================
+    
+    @Test
+    @DisplayName("Test register resource endpoint")
+    public void testRegisterResource() {
+        setupTestDataAndCommit();
+        
+        TestRegisterResourceRequest request = new TestRegisterResourceRequest();
+        request.name = "Test Document";
+        request.description = "A test document for ACL";
+        request.resourceType = "document";
+        request.externalId = "doc-" + UUID.randomUUID();
+        // Don't set ownerId - should default to current user
+        
+        Response response = given()
+            .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
+            .header("X-Test-Mode", "true")
+            .contentType("application/json")
+            .body(request)
+        .when()
+            .post("/api/v1/acl/resources");
+        
+        response.then()
+            .statusCode(201)
+            .body("name", equalTo("Test Document"))
+            .body("resourceType", equalTo("document"))
+            .body("ownerId", equalTo(userId.toString()))
+            .body("externalTenantId", equalTo(tenantId.toString()))
+            .body("isActive", equalTo(true))
+            .body("isPublic", equalTo(false));
+    }
+    
+    @Test
+    @DisplayName("Test register resource with specified owner")
+    public void testRegisterResourceWithOwner() {
+        setupTestDataAndCommit();
+        
+        UUID specificOwnerId = UUID.randomUUID();
+        
+        TestRegisterResourceRequest request = new TestRegisterResourceRequest();
+        request.name = "Test Document with Owner";
+        request.description = "A test document with specific owner";
+        request.resourceType = "dashboard";
+        request.externalId = "dash-" + UUID.randomUUID();
+        request.ownerId = specificOwnerId; // Specify owner explicitly
+        
+        given()
+            .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
+            .header("X-Test-Mode", "true")
+            .contentType("application/json")
+            .body(request)
+        .when()
+            .post("/api/v1/acl/resources")
+        .then()
+            .statusCode(201)
+            .body("name", equalTo("Test Document with Owner"))
+            .body("resourceType", equalTo("dashboard"))
+            .body("ownerId", equalTo(specificOwnerId.toString()))
+            .body("externalTenantId", equalTo(tenantId.toString()));
+    }
+    
+    @Test
+    @DisplayName("Test transfer resource ownership")
+    public void testTransferOwnership() {
+        setupTestDataAndCommit();
+        
+        // First create a resource
+        TestRegisterResourceRequest createRequest = new TestRegisterResourceRequest();
+        createRequest.name = "Resource to Transfer";
+        createRequest.resourceType = "document";
+        createRequest.externalId = "transfer-" + UUID.randomUUID();
+        
+        Response createResponse = given()
+            .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
+            .header("X-Test-Mode", "true")
+            .contentType("application/json")
+            .body(createRequest)
+        .when()
+            .post("/api/v1/acl/resources")
+        .then()
+            .statusCode(201)
+            .extract().response();
+        
+        UUID createdResourceId = UUID.fromString(createResponse.jsonPath().getString("id"));
+        UUID newOwnerId = UUID.randomUUID();
+        
+        // Now transfer ownership
+        TestTransferOwnershipRequest transferRequest = new TestTransferOwnershipRequest();
+        transferRequest.newOwnerId = newOwnerId;
+        transferRequest.reason = "Test ownership transfer";
+        
+        given()
+            .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
+            .header("X-Test-Mode", "true")
+            .contentType("application/json")
+            .body(transferRequest)
+        .when()
+            .put("/api/v1/acl/resources/" + createdResourceId + "/owner")
+        .then()
+            .statusCode(200)
+            .body("ownerId", equalTo(newOwnerId.toString()));
+    }
+    
+    @Test
+    @DisplayName("Test transfer ownership - only owner can transfer")
+    public void testTransferOwnershipUnauthorized() {
+        setupTestDataAndCommit();
+        
+        UUID newOwnerId = UUID.randomUUID();
+        
+        TestTransferOwnershipRequest transferRequest = new TestTransferOwnershipRequest();
+        transferRequest.newOwnerId = newOwnerId;
+        transferRequest.reason = "Unauthorized transfer attempt";
+        
+        UUID nonOwnerUserId = UUID.randomUUID();
+        
+        given()
+            .header("X-USER", "{\"uuid\":\"" + nonOwnerUserId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
+            .header("X-Test-Mode", "true")
+            .contentType("application/json")
+            .body(transferRequest)
+        .when()
+            .put("/api/v1/acl/resources/" + resourceId + "/owner")
+        .then()
+            .statusCode(403)
+            .body("error", containsString("Only resource owner can transfer ownership"));
+    }
+    
+    @Test
+    @DisplayName("Test update resource metadata")
+    public void testUpdateResource() {
+        setupTestDataAndCommit();
+        
+        // First create a resource
+        TestRegisterResourceRequest createRequest = new TestRegisterResourceRequest();
+        createRequest.name = "Original Name";
+        createRequest.description = "Original Description";
+        createRequest.resourceType = "document";
+        createRequest.externalId = "update-" + UUID.randomUUID();
+        
+        Response createResponse = given()
+            .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
+            .header("X-Test-Mode", "true")
+            .contentType("application/json")
+            .body(createRequest)
+        .when()
+            .post("/api/v1/acl/resources")
+        .then()
+            .statusCode(201)
+            .extract().response();
+        
+        UUID createdResourceId = UUID.fromString(createResponse.jsonPath().getString("id"));
+        
+        // Now update the resource
+        TestUpdateResourceRequest updateRequest = new TestUpdateResourceRequest();
+        updateRequest.name = "Updated Name";
+        updateRequest.description = "Updated Description";
+        
+        given()
+            .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
+            .header("X-Test-Mode", "true")
+            .contentType("application/json")
+            .body(updateRequest)
+        .when()
+            .put("/api/v1/acl/resources/" + createdResourceId)
+        .then()
+            .statusCode(200)
+            .body("name", equalTo("Updated Name"))
+            .body("description", equalTo("Updated Description"));
+    }
+    
+    @Test
+    @DisplayName("Test delete resource")
+    public void testDeleteResource() {
+        setupTestDataAndCommit();
+        
+        // First create a resource
+        TestRegisterResourceRequest createRequest = new TestRegisterResourceRequest();
+        createRequest.name = "Resource to Delete";
+        createRequest.resourceType = "document";
+        createRequest.externalId = "delete-" + UUID.randomUUID();
+        
+        Response createResponse = given()
+            .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
+            .header("X-Test-Mode", "true")
+            .contentType("application/json")
+            .body(createRequest)
+        .when()
+            .post("/api/v1/acl/resources")
+        .then()
+            .statusCode(201)
+            .extract().response();
+        
+        UUID createdResourceId = UUID.fromString(createResponse.jsonPath().getString("id"));
+        
+        // Now delete the resource
+        given()
+            .header("X-USER", "{\"uuid\":\"" + userId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
+            .header("X-Test-Mode", "true")
+        .when()
+            .delete("/api/v1/acl/resources/" + createdResourceId)
+        .then()
+            .statusCode(200)
+            .body("success", equalTo(true))
+            .body("message", equalTo("Resource deleted successfully"));
+    }
+    
+    @Test
+    @DisplayName("Test delete resource - only owner can delete")
+    public void testDeleteResourceUnauthorized() {
+        setupTestDataAndCommit();
+        
+        UUID nonOwnerUserId = UUID.randomUUID();
+        
+        given()
+            .header("X-USER", "{\"uuid\":\"" + nonOwnerUserId.toString() + "\",\"tenantId\":\"" + tenantId.toString() + "\"}")
+            .header("X-Test-Mode", "true")
+        .when()
+            .delete("/api/v1/acl/resources/" + resourceId)
+        .then()
+            .statusCode(403)
+            .body("error", containsString("Only resource owner can delete resource"));
+    }
+    
+    @Test
+    @DisplayName("Test register resource - authentication required")
+    public void testRegisterResourceNoAuth() {
+        TestRegisterResourceRequest request = new TestRegisterResourceRequest();
+        request.name = "Test Document";
+        request.resourceType = "document";
+        request.externalId = "doc-" + UUID.randomUUID();
+        
+        given()
+            .contentType("application/json")
+            .body(request)
+        .when()
+            .post("/api/v1/acl/resources")
+        .then()
+            .statusCode(401)
+            .body("error", equalTo("Authentication required"));
+    }
 }
 
 // Test DTOs that mirror the ones in ACLResource
 class GrantPermissionRequest {
     public UUID userId;
-    public UUID resourceId;
+    public String resourceId;
     public UUID permissionId;
-    public UUID grantedBy;
-    public UUID tenantId;
     public LocalDateTime expiresAt;
 }
 
 class PermissionCheckRequest {
     public UUID userId;
-    public UUID resourceId;
+    public String resourceId;
     public String permissionName;
     public UUID tenantId;
 }
 
 class RevokePermissionRequest {
     public UUID userId;
-    public UUID resourceId;
+    public String resourceId;
     public UUID permissionId;
-    public UUID revokedBy;
     public String reason;
-    public UUID tenantId;
 }
 
 class ShareResourceRequest {
-    public UUID resourceId;
+    public String resourceId;
     public UUID targetUserId;
     public UUID roleId;
-    public UUID sharedBy;
-    public UUID tenantId;
 }
 
-class PublishResourceRequest {
-    public UUID resourceId;
+class TestPublishResourceRequest {
+    public String resourceId;
     public List<String> permissionNames;
-    public UUID publishedBy;
-    public UUID tenantId;
 }
 
-class UnpublishResourceRequest {
-    public UUID resourceId;
-    public UUID unpublishedBy;
-    public UUID tenantId;
+class TestUnpublishResourceRequest {
+    public String resourceId;
+}
+
+// DTOs for resource management tests
+class TestRegisterResourceRequest {
+    public String name;
+    public String description;
+    public String resourceType;
+    public String externalId;
+    public UUID ownerId;
+}
+
+class TestTransferOwnershipRequest {
+    public UUID newOwnerId;
+    public String reason;
+}
+
+class TestUpdateResourceRequest {
+    public String name;
+    public String description;
 }

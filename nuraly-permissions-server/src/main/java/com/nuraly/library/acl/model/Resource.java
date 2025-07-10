@@ -18,8 +18,7 @@ import java.util.UUID;
 public class Resource extends PanacheEntityBase {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    public UUID id;
+    public String id;
     
     @NotBlank
     public String name;
@@ -110,6 +109,10 @@ public class Resource extends PanacheEntityBase {
     
     public static Resource findByPublicToken(String token) {
         return find("publicLinkToken", token).firstResult();
+    }
+    
+    public static Resource findById(String id) {
+        return find("id", id).firstResult();
     }
     
     /**

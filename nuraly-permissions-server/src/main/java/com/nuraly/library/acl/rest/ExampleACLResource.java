@@ -329,7 +329,7 @@ public class ExampleACLResource {
 // Request/Response DTOs for examples
 
 class SharePublicRequest {
-    public UUID resourceId;
+    public String resourceId;
     public UUID publishedBy;
     public UUID tenantId;
 }
@@ -365,7 +365,7 @@ class AssignRoleResponse {
 }
 
 class RevokeAnonymousRequest {
-    public UUID resourceId;
+    public String resourceId;
     public UUID revokedBy;
     public UUID tenantId;
 }
@@ -377,12 +377,12 @@ class CreateWorkspaceRequest {
 }
 
 class WorkspaceCreatedResponse {
-    public UUID workspaceId;
+    public String workspaceId;
     public String workspaceName;
     public List<String> availableRoles;
     public String sharePolicy;
     
-    public WorkspaceCreatedResponse(UUID workspaceId, String workspaceName, List<String> availableRoles, String sharePolicy) {
+    public WorkspaceCreatedResponse(String workspaceId, String workspaceName, List<String> availableRoles, String sharePolicy) {
         this.workspaceId = workspaceId;
         this.workspaceName = workspaceName;
         this.availableRoles = availableRoles;
@@ -391,7 +391,7 @@ class WorkspaceCreatedResponse {
 }
 
 class GeneratePublicLinkRequest {
-    public UUID resourceId;
+    public String resourceId;
     public UUID generatedBy;
     public UUID tenantId;
     public String accessLevel = "READ_ONLY"; // READ_ONLY, COMMENT, EDIT

@@ -95,6 +95,7 @@ public class ACLModelTest {
         UUID ownerId = UUID.randomUUID();
         
         Resource resource = new Resource();
+        resource.id = "test-resource-" + System.currentTimeMillis();
         resource.name = "Test Resource";
         resource.description = "Test resource description";
         resource.resourceType = "document";
@@ -130,6 +131,7 @@ public class ACLModelTest {
         UUID externalUserId = UUID.randomUUID();
         
         Resource resource = new Resource();
+        resource.id = "test-resource-grant-" + System.currentTimeMillis();
         resource.name = "Test Resource";
         resource.resourceType = "document";
         resource.externalTenantId = tenantId;
@@ -178,6 +180,7 @@ public class ACLModelTest {
         UUID externalUserId = UUID.randomUUID();
         
         Resource resource = new Resource();
+        resource.id = "test-resource-expired-" + System.currentTimeMillis();
         resource.name = "Test Resource";
         resource.resourceType = "document";
         resource.externalTenantId = tenantId;
@@ -210,7 +213,7 @@ public class ACLModelTest {
         // Given
         UUID tenantId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
-        UUID resourceId = UUID.randomUUID();
+        String resourceId = "test-resource-" + UUID.randomUUID().toString();
         UUID permissionId = UUID.randomUUID();
         
         AuditLog auditLog = new AuditLog();
@@ -300,6 +303,7 @@ public class ACLModelTest {
         
         // Create entities for tenant 1
         Resource resource1 = new Resource();
+        resource1.id = "test-resource-tenant1-" + System.currentTimeMillis();
         resource1.name = "Resource 1";
         resource1.resourceType = "document";
         resource1.externalTenantId = tenant1Id;
@@ -308,6 +312,7 @@ public class ACLModelTest {
         
         // Create entities for tenant 2
         Resource resource2 = new Resource();
+        resource2.id = "test-resource-tenant2-" + System.currentTimeMillis();
         resource2.name = "Resource 2";
         resource2.resourceType = "document";
         resource2.externalTenantId = tenant2Id;

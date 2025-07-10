@@ -4,7 +4,9 @@ import com.nuraly.library.acl.model.*;
 import com.nuraly.library.acl.service.ACLService;
 import com.nuraly.library.acl.service.UserContextService;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -16,6 +18,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
+import org.jboss.logging.Logger;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +33,8 @@ import java.util.UUID;
 @Tag(name = "ACL Management", description = "Access Control List operations for permissions, roles, and resource sharing")
 public class ACLResource {
     
+    private static final Logger LOG = Logger.getLogger(ACLResource.class);
+    
     @Inject
     ACLService aclService;
     
@@ -41,7 +46,7 @@ public class ACLResource {
      * @param resourceId The resource ID to validate
      * @return Response with error if resource not found, null if valid
      */
-    private Response validateResourceExists(UUID resourceId) {
+    private Response validateResourceExists(String resourceId) {
         Resource resource = Resource.findById(resourceId);
         if (resource == null) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -58,7 +63,7 @@ public class ACLResource {
      * @param skipIfNullTenant Whether to skip check if tenantId is null
      * @return Response with error if not authorized, null if authorized
      */
-    private Response validateCurrentUserOwnershipOrPermission(UUID resourceId, String permissionName, boolean skipIfNullTenant) {
+    private Response validateCurrentUserOwnershipOrPermission(String resourceId, String permissionName, boolean skipIfNullTenant) {
         UUID currentUserId = userContextService.getCurrentUserId();
         if (currentUserId == null) {
             return Response.status(Response.Status.UNAUTHORIZED)
@@ -73,7 +78,7 @@ public class ACLResource {
     /**
      * Validates that the current authenticated user is the owner of a resource or has the required permission (no tenant skip option)
      */
-    private Response validateCurrentUserOwnershipOrPermission(UUID resourceId, String permissionName) {
+    private Response validateCurrentUserOwnershipOrPermission(String resourceId, String permissionName) {
         return validateCurrentUserOwnershipOrPermission(resourceId, permissionName, false);
     }
     
@@ -84,7 +89,7 @@ public class ACLResource {
      * @param skipIfNullTenant Whether to skip check if tenantId is null
      * @return Response with error if permission denied, null if authorized
      */
-    private Response validateCurrentUserPermission(UUID resourceId, String permissionName, boolean skipIfNullTenant) {
+    private Response validateCurrentUserPermission(String resourceId, String permissionName, boolean skipIfNullTenant) {
         UUID currentUserId = userContextService.getCurrentUserId();
         if (currentUserId == null) {
             return Response.status(Response.Status.UNAUTHORIZED)
@@ -99,7 +104,7 @@ public class ACLResource {
     /**
      * Validates that the current authenticated user has the required permission on a resource (no tenant skip option)
      */
-    private Response validateCurrentUserPermission(UUID resourceId, String permissionName) {
+    private Response validateCurrentUserPermission(String resourceId, String permissionName) {
         return validateCurrentUserPermission(resourceId, permissionName, false);
     }
     
@@ -112,7 +117,7 @@ public class ACLResource {
      * @param skipIfNullTenant Whether to skip check if tenantId is null
      * @return Response with error if not authorized, null if authorized
      */
-    private Response validateOwnershipOrPermission(UUID userId, UUID resourceId, String permissionName, 
+    private Response validateOwnershipOrPermission(UUID userId, String resourceId, String permissionName, 
                                                  UUID tenantId, boolean skipIfNullTenant) {
         // Skip authorization check if tenantId is null and skipIfNullTenant is true
         if (skipIfNullTenant && tenantId == null) {
@@ -139,7 +144,7 @@ public class ACLResource {
     /**
      * Validates that a user is the owner of a resource or has the required permission (no tenant skip option)
      */
-    private Response validateOwnershipOrPermission(UUID userId, UUID resourceId, String permissionName, UUID tenantId) {
+    private Response validateOwnershipOrPermission(UUID userId, String resourceId, String permissionName, UUID tenantId) {
         return validateOwnershipOrPermission(userId, resourceId, permissionName, tenantId, false);
     }
     
@@ -152,7 +157,7 @@ public class ACLResource {
      * @param skipIfNullTenant Whether to skip check if tenantId is null
      * @return Response with error if permission denied, null if authorized
      */
-    private Response validatePermission(UUID userId, UUID resourceId, String permissionName, 
+    private Response validatePermission(UUID userId, String resourceId, String permissionName, 
                                       UUID tenantId, boolean skipIfNullTenant) {
         // Skip authorization check if tenantId is null and skipIfNullTenant is true
         if (skipIfNullTenant && tenantId == null) {
@@ -172,7 +177,7 @@ public class ACLResource {
     /**
      * Validates that a user has the required permission on a resource (no tenant skip option)
      */
-    private Response validatePermission(UUID userId, UUID resourceId, String permissionName, UUID tenantId) {
+    private Response validatePermission(UUID userId, String resourceId, String permissionName, UUID tenantId) {
         return validatePermission(userId, resourceId, permissionName, tenantId, false);
     }
     
@@ -208,6 +213,7 @@ public class ACLResource {
     public Response checkPermission(
         @Parameter(description = "Permission check request", required = true)
         PermissionCheckRequest request) {
+        
         try {
             boolean hasPermission = aclService.hasPermission(
                 request.userId, 
@@ -216,9 +222,15 @@ public class ACLResource {
                 request.tenantId
             );
             
-            return Response.ok(new PermissionCheckResponse(hasPermission, null)).build();
+            PermissionCheckResponse response = new PermissionCheckResponse(hasPermission, null);
+            
+            return Response.ok(response).build();
         } catch (Exception e) {
-            return Response.ok(new PermissionCheckResponse(false, e.getMessage())).build();
+            LOG.errorf("Exception in checkPermission: %s - %s", e.getClass().getSimpleName(), e.getMessage());
+            
+            PermissionCheckResponse errorResponse = new PermissionCheckResponse(false, e.getMessage());
+            
+            return Response.ok(errorResponse).build();
         }
     }
     
@@ -252,9 +264,15 @@ public class ACLResource {
                 request.tenantId
             );
             
-            return Response.ok(new PermissionCheckResponse(hasPermission, null)).build();
+            PermissionCheckResponse response = new PermissionCheckResponse(hasPermission, null);
+            
+            return Response.ok(response).build();
         } catch (Exception e) {
-            return Response.ok(new PermissionCheckResponse(false, e.getMessage())).build();
+            LOG.errorf("Exception in checkAnonymousPermission: %s - %s", e.getClass().getSimpleName(), e.getMessage());
+            
+            PermissionCheckResponse errorResponse = new PermissionCheckResponse(false, e.getMessage());
+            
+            return Response.ok(errorResponse).build();
         }
     }
     
@@ -817,19 +835,23 @@ public class ACLResource {
         @QueryParam("resourceType") String resourceType,
         @Parameter(description = "Permission name to filter by (optional)")
         @QueryParam("permission") String permissionName) {
+        
         try {
             // Get current user from context
             UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
             if (currentUserId == null) {
                 return Response.status(Response.Status.UNAUTHORIZED)
                     .entity(new ErrorResponse("Authentication required"))
                     .build();
             }
             
-            UUID currentTenantId = userContextService.getCurrentTenantId();
             List<Resource> resources = aclService.getAccessibleResources(currentUserId, currentTenantId, resourceType, permissionName);
+            
             return Response.ok(resources).build();
         } catch (Exception e) {
+            LOG.errorf("Exception in getAccessibleResources: %s - %s", e.getClass().getSimpleName(), e.getMessage());
             return createErrorResponse(e);
         }
     }
@@ -952,6 +974,314 @@ public class ACLResource {
             return createErrorResponse(e);
         }
     }
+    
+    // ============================================
+    // RESOURCE MANAGEMENT ENDPOINTS
+    // ============================================
+    
+    /**
+     * Register a new resource with the ACL system
+     * POST /api/v1/acl/resources
+     */
+    @POST
+    @Path("/resources")
+    @Transactional
+    @Operation(
+        summary = "Register resource",
+        description = "Register a new resource with the ACL system for permission management"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "201",
+            description = "Resource registered successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = Resource.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - invalid resource data"
+        ),
+        @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        )
+    })
+    public Response registerResource(
+        @Parameter(description = "Resource registration request", required = true)
+        @Valid RegisterResourceRequest request) {
+        try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
+            // Additional null checks (though validation should catch these)
+            if (request.name == null || request.name.trim().isEmpty()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Resource name is required and cannot be blank"))
+                    .build();
+            }
+            
+            if (request.resourceType == null || request.resourceType.trim().isEmpty()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Resource type is required and cannot be blank"))
+                    .build();
+            }
+            
+            if (request.externalId == null || request.externalId.trim().isEmpty()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("External ID is required and cannot be blank"))
+                    .build();
+            }
+            
+            // Create new resource
+            Resource resource = new Resource();
+            resource.id = UUID.randomUUID().toString(); // Generate unique ID
+            resource.name = request.name.trim();
+            resource.description = request.description != null ? request.description.trim() : null;
+            resource.resourceType = request.resourceType.trim();
+            resource.externalId = request.externalId.trim();
+            resource.externalTenantId = currentTenantId;
+            resource.ownerId = request.ownerId != null ? request.ownerId : currentUserId; // Allow specifying owner or default to current user
+            resource.isActive = true;
+            resource.isPublic = false;
+            
+            resource.persist();
+            
+            return Response.status(Response.Status.CREATED).entity(resource).build();
+        } catch (Exception e) {
+            return createErrorResponse(e);
+        }
+    }
+    
+    /**
+     * Transfer ownership of a resource
+     * PUT /api/v1/acl/resources/{resourceId}/owner
+     */
+    @PUT
+    @Path("/resources/{resourceId}/owner")
+    @Transactional
+    @Operation(
+        summary = "Transfer resource ownership",
+        description = "Transfer ownership of a resource to another user"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Ownership transferred successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = Resource.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - only resource owner can transfer ownership"
+        )
+    })
+    public Response transferOwnership(
+        @Parameter(description = "Resource ID", required = true)
+        @PathParam("resourceId") String resourceId,
+        @Parameter(description = "Transfer ownership request", required = true)
+        TransferOwnershipRequest request) {
+        try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            UUID currentTenantId = userContextService.getCurrentTenantId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
+            // Validate resource exists
+            Resource resource = Resource.findById(resourceId);
+            if (resource == null) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Resource not found"))
+                    .build();
+            }
+            
+            // Only current owner can transfer ownership
+            if (!currentUserId.equals(resource.ownerId)) {
+                return Response.status(Response.Status.FORBIDDEN)
+                    .entity(new ErrorResponse("Only resource owner can transfer ownership"))
+                    .build();
+            }
+            
+            // Ensure resource is in current tenant
+            if (!resource.externalTenantId.equals(currentTenantId)) {
+                return Response.status(Response.Status.FORBIDDEN)
+                    .entity(new ErrorResponse("Resource not in current tenant"))
+                    .build();
+            }
+            
+            // Transfer ownership
+            resource.ownerId = request.newOwnerId;
+            resource.persist();
+            
+            return Response.ok(resource).build();
+        } catch (Exception e) {
+            return createErrorResponse(e);
+        }
+    }
+    
+    /**
+     * Update resource metadata
+     * PUT /api/v1/acl/resources/{resourceId}
+     */
+    @PUT
+    @Path("/resources/{resourceId}")
+    @Transactional
+    @Operation(
+        summary = "Update resource",
+        description = "Update resource metadata (name, description, etc.)"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Resource updated successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = Resource.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found or invalid parameters"
+        ),
+        @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permissions to update resource"
+        )
+    })
+    public Response updateResource(
+        @Parameter(description = "Resource ID", required = true)
+        @PathParam("resourceId") String resourceId,
+        @Parameter(description = "Update resource request", required = true)
+        UpdateResourceRequest request) {
+        try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
+            // Check authorization (must be owner or have admin permission)
+            Response authError = validateCurrentUserOwnershipOrPermission(resourceId, "admin");
+            if (authError != null) return authError;
+            
+            Resource resource = Resource.findById(resourceId);
+            if (resource == null) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Resource not found"))
+                    .build();
+            }
+            
+            // Update allowed fields
+            if (request.name != null) {
+                resource.name = request.name;
+            }
+            if (request.description != null) {
+                resource.description = request.description;
+            }
+            
+            resource.persist();
+            
+            return Response.ok(resource).build();
+        } catch (Exception e) {
+            return createErrorResponse(e);
+        }
+    }
+    
+    /**
+     * Delete/deactivate a resource
+     * DELETE /api/v1/acl/resources/{resourceId}
+     */
+    @DELETE
+    @Path("/resources/{resourceId}")
+    @Transactional
+    @Operation(
+        summary = "Delete resource",
+        description = "Delete a resource and all its associated permissions"
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Resource deleted successfully",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = OperationResult.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "400",
+            description = "Bad request - resource not found"
+        ),
+        @APIResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required"
+        ),
+        @APIResponse(
+            responseCode = "403",
+            description = "Forbidden - only resource owner can delete resource"
+        )
+    })
+    public Response deleteResource(
+        @Parameter(description = "Resource ID", required = true)
+        @PathParam("resourceId") String resourceId) {
+        try {
+            UUID currentUserId = userContextService.getCurrentUserId();
+            
+            if (currentUserId == null) {
+                return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ErrorResponse("Authentication required"))
+                    .build();
+            }
+            
+            Resource resource = Resource.findById(resourceId);
+            if (resource == null) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(new ErrorResponse("Resource not found"))
+                    .build();
+            }
+            
+            // Only owner can delete resource
+            if (!currentUserId.equals(resource.ownerId)) {
+                return Response.status(Response.Status.FORBIDDEN)
+                    .entity(new ErrorResponse("Only resource owner can delete resource"))
+                    .build();
+            }
+            
+            // Soft delete - deactivate instead of hard delete to preserve audit trail
+            resource.isActive = false;
+            resource.persist();
+            
+            return Response.ok(new OperationResult(true, "Resource deleted successfully")).build();
+        } catch (Exception e) {
+            return createErrorResponse(e);
+        }
+    }
 }
 
 // Request/Response DTOs
@@ -962,7 +1292,7 @@ class PermissionCheckRequest {
     public UUID userId;
     
     @Schema(description = "Resource ID to check permission on", required = true)
-    public UUID resourceId;
+    public String resourceId; // Already String
     
     @Schema(description = "Permission name to check", required = true, example = "read")
     public String permissionName;
@@ -974,7 +1304,7 @@ class PermissionCheckRequest {
 @Schema(description = "Request to check anonymous access to a resource")
 class AnonymousPermissionCheckRequest {
     @Schema(description = "Resource ID to check permission on", required = true)
-    public UUID resourceId;
+    public String resourceId; // Already String
     
     @Schema(description = "Permission name to check", required = true, example = "read")
     public String permissionName;
@@ -1005,7 +1335,7 @@ class GrantPermissionRequest {
     public UUID userId;
     
     @Schema(description = "Resource ID to grant permission on", required = true)
-    public UUID resourceId;
+    public String resourceId;
     
     @Schema(description = "Permission ID to grant", required = true)
     public UUID permissionId;
@@ -1020,7 +1350,7 @@ class SimpleGrantPermissionRequest {
     public UUID targetUserId;
     
     @Schema(description = "Resource ID to grant permission on", required = true)
-    public UUID resourceId;
+    public String resourceId;
     
     @Schema(description = "Permission ID to grant", required = true)
     public UUID permissionId;
@@ -1035,7 +1365,7 @@ class GrantRolePermissionRequest {
     public UUID roleId;
     
     @Schema(description = "Resource ID to grant permission on", required = true)
-    public UUID resourceId;
+    public String resourceId;
     
     @Schema(description = "Permission ID to grant", required = true)
     public UUID permissionId;
@@ -1050,7 +1380,7 @@ class RevokePermissionRequest {
     public UUID userId;
     
     @Schema(description = "Resource ID to revoke permission on", required = true)
-    public UUID resourceId;
+    public String resourceId;
     
     @Schema(description = "Permission ID to revoke", required = true)
     public UUID permissionId;
@@ -1065,7 +1395,7 @@ class SimpleRevokePermissionRequest {
     public UUID targetUserId;
     
     @Schema(description = "Resource ID to revoke permission on", required = true)
-    public UUID resourceId;
+    public String resourceId;
     
     @Schema(description = "Permission ID to revoke", required = true)
     public UUID permissionId;
@@ -1077,7 +1407,7 @@ class SimpleRevokePermissionRequest {
 @Schema(description = "Request to share a resource with another user")
 class ShareResourceRequest {
     @Schema(description = "Resource ID to share", required = true)
-    public UUID resourceId;
+    public String resourceId;
     
     @Schema(description = "User ID to share the resource with", required = true)
     public UUID targetUserId;
@@ -1089,7 +1419,7 @@ class ShareResourceRequest {
 @Schema(description = "Request to publish a resource for public access")
 class PublishResourceRequest {
     @Schema(description = "Resource ID to publish", required = true)
-    public UUID resourceId;
+    public String resourceId;
     
     @Schema(description = "List of permission names to allow for public access", required = true)
     public List<String> permissionNames;
@@ -1098,7 +1428,7 @@ class PublishResourceRequest {
 @Schema(description = "Request to unpublish a resource (remove public access)")
 class UnpublishResourceRequest {
     @Schema(description = "Resource ID to unpublish", required = true)
-    public UUID resourceId;
+    public String resourceId;
 }
 
 @Schema(description = "Generic operation result")
@@ -1127,4 +1457,47 @@ class ErrorResponse {
     public ErrorResponse(String error) {
         this.error = error;
     }
+}
+
+// ============================================
+// RESOURCE MANAGEMENT REQUEST/RESPONSE DTOs
+// ============================================
+
+@Schema(description = "Request to register a new resource with the ACL system")
+class RegisterResourceRequest {
+    @Schema(description = "Resource name", required = true)
+    @NotBlank(message = "Resource name is required and cannot be blank")
+    public String name;
+    
+    @Schema(description = "Resource description")
+    public String description;
+    
+    @Schema(description = "Resource type (e.g., 'document', 'dashboard', 'function')", required = true)
+    @NotBlank(message = "Resource type is required and cannot be blank")
+    public String resourceType;
+    
+    @Schema(description = "External resource ID - reference to the actual resource in other systems", required = true)
+    @NotBlank(message = "External ID is required and cannot be blank")
+    public String externalId;
+    
+    @Schema(description = "Owner user ID - if not specified, current user becomes owner")
+    public UUID ownerId;
+}
+
+@Schema(description = "Request to transfer resource ownership")
+class TransferOwnershipRequest {
+    @Schema(description = "New owner user ID", required = true)
+    public UUID newOwnerId;
+    
+    @Schema(description = "Reason for ownership transfer")
+    public String reason;
+}
+
+@Schema(description = "Request to update resource metadata")
+class UpdateResourceRequest {
+    @Schema(description = "New resource name")
+    public String name;
+    
+    @Schema(description = "New resource description")
+    public String description;
 }

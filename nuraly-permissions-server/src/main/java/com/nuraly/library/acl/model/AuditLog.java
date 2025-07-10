@@ -29,7 +29,7 @@ public class AuditLog extends PanacheEntityBase {
     public UUID userId; // Can be null for anonymous actions
     
     @Column(name = "resource_id")
-    public UUID resourceId;
+    public String resourceId;
     
     @Column(name = "permission_id")
     public UUID permissionId;
@@ -68,7 +68,7 @@ public class AuditLog extends PanacheEntityBase {
         return find("userId", userId).list();
     }
     
-    public static List<AuditLog> findByResource(UUID resourceId) {
+    public static List<AuditLog> findByResource(String resourceId) {
         return find("resourceId", resourceId).list();
     }
     
@@ -90,7 +90,7 @@ public class AuditLog extends PanacheEntityBase {
     
     // Factory methods for common audit events
     public static AuditLog createPermissionGranted(UUID externalTenantId, UUID grantedBy, UUID targetUserId, 
-                                                  UUID resourceId, UUID permissionId) {
+                                                  String resourceId, UUID permissionId) {
         AuditLog log = new AuditLog();
         log.externalTenantId = externalTenantId;
         log.actionType = AuditActionType.PERMISSION_GRANTED;
@@ -103,7 +103,7 @@ public class AuditLog extends PanacheEntityBase {
     }
     
     public static AuditLog createPermissionRevoked(UUID externalTenantId, UUID revokedBy, UUID targetUserId, 
-                                                  UUID resourceId, UUID permissionId, String reason) {
+                                                  String resourceId, UUID permissionId, String reason) {
         AuditLog log = new AuditLog();
         log.externalTenantId = externalTenantId;
         log.actionType = AuditActionType.PERMISSION_REVOKED;
@@ -116,7 +116,7 @@ public class AuditLog extends PanacheEntityBase {
         return log;
     }
     
-    public static AuditLog createAccessAttempt(UUID tenantId, UUID userId, UUID resourceId, 
+    public static AuditLog createAccessAttempt(UUID tenantId, UUID userId, String resourceId, 
                                               UUID permissionId, boolean success, String errorMessage) {
         AuditLog log = new AuditLog();
         log.externalTenantId = tenantId;
@@ -129,7 +129,7 @@ public class AuditLog extends PanacheEntityBase {
         return log;
     }
     
-    public static AuditLog createResourcePublished(UUID tenantId, UUID userId, UUID resourceId) {
+    public static AuditLog createResourcePublished(UUID tenantId, UUID userId, String resourceId) {
         AuditLog log = new AuditLog();
         log.externalTenantId = tenantId;
         log.actionType = AuditActionType.RESOURCE_PUBLISHED;
@@ -139,7 +139,7 @@ public class AuditLog extends PanacheEntityBase {
         return log;
     }
     
-    public static AuditLog createResourceUnpublished(UUID tenantId, UUID userId, UUID resourceId) {
+    public static AuditLog createResourceUnpublished(UUID tenantId, UUID userId, String resourceId) {
         AuditLog log = new AuditLog();
         log.externalTenantId = tenantId;
         log.actionType = AuditActionType.RESOURCE_UNPUBLISHED;

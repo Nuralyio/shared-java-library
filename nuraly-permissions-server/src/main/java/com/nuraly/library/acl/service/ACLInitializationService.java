@@ -16,19 +16,14 @@ public class ACLInitializationService {
     
     @Transactional
     public void onStart(@Observes StartupEvent ev) {
-        System.out.println("Initializing ACL system...");
-        
         try {
             // Create default system permissions
             createSystemPermissions();
             
             // Create default system roles
             createSystemRoles();
-            
-            System.out.println("ACL system initialization completed successfully");
         } catch (Exception e) {
-            System.err.println("Failed to initialize ACL system: " + e.getMessage());
-            e.printStackTrace();
+            throw new RuntimeException("Failed to initialize ACL system: " + e.getMessage(), e);
         }
     }
     
@@ -70,8 +65,6 @@ public class ACLInitializationService {
         createPermissionIfNotExists("admin", "Administer tenant", "tenant", true);
         createPermissionIfNotExists("invite", "Invite members to tenant", "tenant", true);
         createPermissionIfNotExists("remove", "Remove members from tenant", "tenant", true);
-        
-        System.out.println("System permissions created successfully");
     }
     
     /**
@@ -140,8 +133,6 @@ public class ACLInitializationService {
         if (moderator != null) {
             addPermissionsToRole(moderator, "read", "write", "annotate", "share", "publish", "moderate");
         }
-        
-        System.out.println("System roles created successfully");
     }
     
     /**
@@ -155,11 +146,8 @@ public class ACLInitializationService {
             
             // Create tenant-specific permissions if needed
             createTenantSpecificPermissions(tenantId);
-            
-            System.out.println("Tenant " + tenantId + " initialized successfully");
         } catch (Exception e) {
-            System.err.println("Failed to initialize tenant " + tenantId + ": " + e.getMessage());
-            throw e;
+            throw new RuntimeException("Failed to initialize tenant " + tenantId + ": " + e.getMessage(), e);
         }
     }
     

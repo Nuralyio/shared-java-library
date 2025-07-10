@@ -55,6 +55,8 @@ public class DocumentResource {
 ```
 
 ### 4. Get Accessible Resources
+
+**Option 1: Using explicit user/tenant parameters**
 ```java
 @Inject
 private PermissionClient permissionClient;
@@ -78,6 +80,28 @@ AccessibleResourcesResponse response = permissionClient.getAccessibleResources(
 boolean hasAnyDocs = permissionClient.hasAnyAccessibleResources(
     userId, "read", "document", null  // tenantId is optional
 );
+```
+
+**Option 2: Using current request context (NEW)**
+```java
+@Inject
+private PermissionClient permissionClient;
+
+// Automatically extracts userId and tenantId from X-USER header in current request
+List<String> readableDocuments = permissionClient.getAccessibleResourceIds(
+    "read", "document"  // User and tenant context extracted automatically
+);
+
+// Check permissions for current user
+boolean hasPermission = permissionClient.hasPermission("read", "document123");
+
+// Get accessible resources with pagination for current user
+AccessibleResourcesResponse response = permissionClient.getAccessibleResources(
+    "read", "document", 50, 0  // limit=50, offset=0
+);
+
+// Quick check if current user has any accessible documents
+boolean hasAnyDocs = permissionClient.hasAnyAccessibleResources("read", "document");
 ```
 
 ## 🏗️ Architecture
@@ -109,6 +133,8 @@ boolean hasAnyDocs = permissionClient.hasAnyAccessibleResources(
 - **Real-time revocation**: Immediate permission changes with clean propagation
 - **Multi-tenancy**: Complete tenant isolation with shared system roles
 - **Resource discovery**: Get lists of accessible resource IDs for efficient UI building
+- **Context-aware methods**: Automatic user/tenant extraction from request headers (NEW)
+- **Flexible API**: Both explicit parameters and context-aware overloaded methods (NEW)
 
 ### PowerApps-Inspired Features
 - **Security roles**: Reusable permission bundles (Viewer, Editor, Publisher, Moderator)
@@ -148,5 +174,21 @@ mvn test
 - **Client Usage**: See `nuraly-permissions-client/README.md`
 - **Server Setup**: See `nuraly-permissions-server/README.md` 
 - **API Documentation**: Available at `/q/swagger-ui` when running server
+
+## 🆕 What's New
+
+### Latest Enhancements (v1.0.0-SNAPSHOT)
+
+- **🎯 Context-Aware Methods**: New overloaded methods automatically extract user and tenant from X-USER request headers
+- **🔧 Flexible API**: Choose between explicit parameters or context-aware methods based on your use case  
+- **📋 Enhanced Resource Discovery**: Get accessible resource IDs efficiently for UI building
+- **🔄 Backward Compatibility**: All existing code continues to work unchanged
+- **🔒 Improved Security**: Reduced risk of passing wrong user context in REST endpoints
+- **📖 Complete Model Synchronization**: Client response models now match server/database fields exactly
+
+**Migration Guide:**
+- No breaking changes - all existing code continues to work
+- New context-aware methods are optional - use them where they make sense (e.g., REST endpoints)
+- Original explicit parameter methods remain available for programmatic use cases
 
 This project uses Quarkus, the Supersonic Subatomic Java Framework. If you want to learn more about Quarkus, please visit its website: <https://quarkus.io/>.

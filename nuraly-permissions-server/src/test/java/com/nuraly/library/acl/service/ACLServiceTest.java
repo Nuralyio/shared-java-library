@@ -29,7 +29,7 @@ public class ACLServiceTest {
     
     private UUID tenantId;
     private UUID userId;
-    private UUID resourceId;
+    private String resourceId;
     private UUID permissionId;
     private UUID roleId;
     
@@ -38,7 +38,7 @@ public class ACLServiceTest {
         // Initialize test IDs that will be used in tests
         tenantId = UUID.randomUUID();
         userId = UUID.randomUUID();
-        resourceId = UUID.randomUUID();
+        resourceId = "test-resource-" + UUID.randomUUID().toString();
         
         // Find system permission (created during app initialization)
         Permission permission = Permission.findByName("read");
@@ -83,6 +83,7 @@ public class ACLServiceTest {
         
         // Create test resource and persist it
         Resource resource = new Resource();
+        resource.id = "test-resource-" + uniqueId;
         resource.name = "Test Resource " + uniqueId;
         resource.resourceType = "document";
         resource.externalTenantId = tenantId;
@@ -114,6 +115,7 @@ public class ACLServiceTest {
         
         // Create test resource
         Resource resource = new Resource();
+        resource.id = "test-resource-grant-" + uniqueId;
         resource.name = "Test Resource " + uniqueId;
         resource.resourceType = "document";
         resource.externalTenantId = testTenantId;
@@ -308,14 +310,15 @@ public class ACLServiceTest {
         // Given - setup test data first
         setupTestDataAndCommit();
         
-        // Given - create additional resource and grant access (let Hibernate generate the ID)
+        // Given - create additional resource and grant access 
         Resource additionalResource = new Resource();
+        additionalResource.id = "additional-resource-" + UUID.randomUUID().toString();
         additionalResource.name = "Additional Resource " + UUID.randomUUID().toString();
         additionalResource.resourceType = "document";
         additionalResource.externalTenantId = tenantId;
         additionalResource.ownerId = UUID.randomUUID(); // Different owner
         additionalResource.persist();
-        UUID additionalResourceId = additionalResource.id;
+        String additionalResourceId = additionalResource.id;
         
         aclService.grantPermission(userId, additionalResourceId, permissionId, userId, tenantId);
         
@@ -363,15 +366,18 @@ public class ACLServiceTest {
         // Create resource in different tenant
         UUID otherTenantId = UUID.randomUUID();
         Resource otherResource = new Resource();
+        otherResource.id = "other-tenant-resource-" + UUID.randomUUID().toString();
         otherResource.name = "Other Tenant Resource";
         otherResource.resourceType = "document";
         otherResource.externalTenantId = otherTenantId;
         otherResource.ownerId = userId; // Same user but different tenant
-        UUID otherResourceId = otherResource.id;
+        otherResource.persist();
+        String otherResourceId = otherResource.id;
         
-        // When & Then - user should not have access to other tenant's resource
+        // When & Then - user should not have access to other tenant's resource from wrong tenant context
         assertFalse(aclService.hasPermission(userId, otherResourceId, "read", tenantId));
-        assertFalse(aclService.hasPermission(userId, otherResourceId, "read", otherTenantId));
+        // But should have access when using correct tenant context since they are the owner
+        assertTrue(aclService.hasPermission(userId, otherResourceId, "read", otherTenantId));
     }
     
     @Test
@@ -434,7 +440,7 @@ public class ACLServiceTest {
         assertFalse(aclService.hasPermission(null, resourceId, "read", tenantId));
         assertFalse(aclService.hasPermission(userId, null, "read", tenantId));
         assertFalse(aclService.hasPermission(UUID.randomUUID(), resourceId, "read", tenantId));
-        assertFalse(aclService.hasPermission(userId, UUID.randomUUID(), "read", tenantId));
+        assertFalse(aclService.hasPermission(userId, "nonexistent-resource", "read", tenantId));
         
         // Test with invalid permission names
         assertFalse(aclService.hasPermission(userId, resourceId, "nonexistent", tenantId));

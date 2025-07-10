@@ -107,7 +107,6 @@ public class PermissionInterceptor implements ContainerRequestFilter {
                 tenantHeader
             );
         } catch (Exception e) {
-            System.err.println("Error checking authenticated user permission: " + e.getMessage());
             return false;
         }
     }

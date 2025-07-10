@@ -7,6 +7,7 @@ import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.jboss.logging.Logger;
 
 /**
  * Core ACL service providing comprehensive access control functionality
@@ -15,6 +16,8 @@ import java.util.stream.Collectors;
 @ApplicationScoped
 public class ACLService {
     
+    private static final Logger LOG = Logger.getLogger(ACLService.class);
+    
     @Inject
     AuditService auditService;
     
@@ -22,14 +25,19 @@ public class ACLService {
      * Check if a user has a specific permission on a resource
      * This is the main access control entry point
      */
-    public boolean hasPermission(UUID userId, UUID resourceId, String permissionName, UUID tenantId) {
+    public boolean hasPermission(UUID userId, String resourceId, String permissionName, UUID tenantId) {
         try {
-            Resource resource = Resource.findById(resourceId);
+            Resource resource = Resource.findById(resourceId); // resourceId is now String
             Permission permission = Permission.findByName(permissionName);
             
-            if (resource == null || permission == null) {
+            if (resource == null) {
                 auditService.logAccessAttempt(tenantId, userId, resourceId, 
-                    permission != null ? permission.id : null, false, "Resource or permission not found");
+                    permission != null ? permission.id : null, false, "Resource not found");
+                return false;
+            }
+            
+            if (permission == null) {
+                auditService.logAccessAttempt(tenantId, userId, resourceId, null, false, "Permission not found");
                 return false;
             }
             
@@ -40,6 +48,7 @@ public class ACLService {
             
             return hasAccess;
         } catch (Exception e) {
+            LOG.errorf("Exception in hasPermission: %s", e.getMessage());
             auditService.logAccessAttempt(tenantId, userId, resourceId, null, false, e.getMessage());
             return false;
         }
@@ -48,9 +57,9 @@ public class ACLService {
     /**
      * Check if anonymous access is allowed for a resource with specific permission
      */
-    public boolean hasAnonymousPermission(UUID resourceId, String permissionName, UUID tenantId) {
+    public boolean hasAnonymousPermission(String resourceId, String permissionName, UUID tenantId) {
         try {
-            Resource resource = Resource.findById(resourceId);
+            Resource resource = Resource.findById(resourceId); // resourceId is now String
             Permission permission = Permission.findByName(permissionName);
             
             if (resource == null || permission == null) {
@@ -75,7 +84,7 @@ public class ACLService {
      * Grant a permission to a user on a resource
      */
     @Transactional
-    public ResourceGrant grantPermission(UUID userId, UUID resourceId, UUID permissionId, 
+    public ResourceGrant grantPermission(UUID userId, String resourceId, UUID permissionId, 
                                        UUID grantedBy, UUID tenantId) {
         return grantPermission(userId, null, resourceId, permissionId, grantedBy, tenantId, null);
     }
@@ -84,7 +93,7 @@ public class ACLService {
      * Grant a role-based permission on a resource
      */
     @Transactional
-    public ResourceGrant grantRolePermission(UUID roleId, UUID resourceId, UUID permissionId, 
+    public ResourceGrant grantRolePermission(UUID roleId, String resourceId, UUID permissionId, 
                                            UUID grantedBy, UUID tenantId) {
         return grantPermission(null, roleId, resourceId, permissionId, grantedBy, tenantId, null);
     }
@@ -93,7 +102,7 @@ public class ACLService {
      * Grant a permission with expiration
      */
     @Transactional
-    public ResourceGrant grantPermission(UUID userId, UUID roleId, UUID resourceId, UUID permissionId, 
+    public ResourceGrant grantPermission(UUID userId, UUID roleId, String resourceId, UUID permissionId, 
                                        UUID grantedBy, UUID tenantId, LocalDateTime expiresAt) {
         // Validate inputs
         Resource resource = Resource.findById(resourceId);
@@ -150,7 +159,7 @@ public class ACLService {
      * Revoke a permission from a user on a resource
      */
     @Transactional
-    public boolean revokePermission(UUID userId, UUID resourceId, UUID permissionId, 
+    public boolean revokePermission(UUID userId, String resourceId, UUID permissionId, 
                                   UUID revokedBy, String reason, UUID tenantId) {
         List<ResourceGrant> grants = ResourceGrant.findByExternalUserAndResource(userId, resourceId);
         
@@ -172,7 +181,7 @@ public class ACLService {
      * Share a resource with another user using a specific role
      */
     @Transactional
-    public List<ResourceGrant> shareResource(UUID resourceId, UUID targetUserId, UUID roleId, 
+    public List<ResourceGrant> shareResource(String resourceId, UUID targetUserId, UUID roleId, 
                                            UUID sharedBy, UUID tenantId) {
         Role role = Role.findById(roleId);
         if (role == null) {
@@ -198,7 +207,7 @@ public class ACLService {
      * Publish a resource for public access
      */
     @Transactional
-    public void publishResource(UUID resourceId, List<String> permissionNames, UUID publishedBy, UUID tenantId) {
+    public void publishResource(String resourceId, List<String> permissionNames, UUID publishedBy, UUID tenantId) {
         Resource resource = Resource.findById(resourceId);
         if (resource == null) {
             throw new IllegalArgumentException("Resource not found");
@@ -228,7 +237,7 @@ public class ACLService {
      * Unpublish a resource (remove public access)
      */
     @Transactional
-    public void unpublishResource(UUID resourceId, UUID unpublishedBy, UUID tenantId) {
+    public void unpublishResource(String resourceId, UUID unpublishedBy, UUID tenantId) {
         Resource resource = Resource.findById(resourceId);
         if (resource == null) {
             throw new IllegalArgumentException("Resource not found");
@@ -261,7 +270,7 @@ public class ACLService {
      * Get all resources accessible by a user, optionally filtered by resource type and permission
      */
     public List<Resource> getAccessibleResources(UUID userId, UUID tenantId, String resourceType, String permissionName) {
-        Set<UUID> accessibleResourceIds = new HashSet<>();
+        Set<String> accessibleResourceIds = new HashSet<>();
         
         // If filtering by a specific permission, we need to check access differently
         if (permissionName != null && !permissionName.trim().isEmpty()) {
@@ -321,7 +330,7 @@ public class ACLService {
         
         // Fetch all accessible resources
         List<Resource> accessibleResources = accessibleResourceIds.stream()
-            .map(id -> Resource.<Resource>findById(id))
+            .map(id -> Resource.findById(id))
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
         
@@ -374,6 +383,7 @@ public class ACLService {
         
         // Check direct grants
         List<ResourceGrant> userGrants = ResourceGrant.findByExternalUserAndResource(userId, resource.id);
+        
         for (ResourceGrant grant : userGrants) {
             if (grant.permission.id.equals(permission.id) && grant.isValid()) {
                 return true;
@@ -382,14 +392,19 @@ public class ACLService {
         
         // Check role-based access (tenant-scoped)
         List<UserRole> userRoles = UserRole.findActiveByExternalUserAndTenant(userId, tenantId);
+        
         for (UserRole userRole : userRoles) {
-            if (userRole.role != null && userRole.role.getAllPermissions().contains(permission)) {
-                return true;
+            if (userRole.role != null) {
+                if (userRole.role.getAllPermissions().contains(permission)) {
+                    return true;
+                }
             }
         }
         
         // Check inherited permissions from parent resources
-        return checkInheritedPermissions(userId, resource, permission, tenantId);
+        boolean inherited = checkInheritedPermissions(userId, resource, permission, tenantId);
+        
+        return inherited;
     }
     
     private boolean checkAnonymousPermission(Resource resource, Permission permission) {
@@ -413,8 +428,10 @@ public class ACLService {
     private boolean checkInheritedPermissions(UUID userId, Resource resource, Permission permission, UUID tenantId) {
         Resource parent = resource.parentResource;
         if (parent != null) {
-            return checkUserPermission(userId, parent, permission, tenantId);
+            boolean parentResult = checkUserPermission(userId, parent, permission, tenantId);
+            return parentResult;
         }
+        
         return false;
     }
 }

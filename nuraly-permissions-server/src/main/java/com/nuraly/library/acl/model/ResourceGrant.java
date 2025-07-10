@@ -88,7 +88,7 @@ public class ResourceGrant extends PanacheEntityBase {
         return find("role.id", roleId).list();
     }
     
-    public static List<ResourceGrant> findByExternalUserAndResource(UUID externalUserId, UUID resourceId) {
+    public static List<ResourceGrant> findByExternalUserAndResource(UUID externalUserId, String resourceId) {
         return find("externalUserId = ?1 and resource.id = ?2", externalUserId, resourceId).list();
     }
     

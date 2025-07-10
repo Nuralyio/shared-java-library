@@ -1,9 +1,10 @@
 package com.nuraly.library.permissions.client;
 
 import com.nuraly.library.permissions.client.model.AccessibleResourcesResponse;
+import com.nuraly.library.permissions.client.model.CreateResourceRequest;
+import com.nuraly.library.permissions.client.model.CreateResourceResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 
@@ -166,6 +167,31 @@ class HttpPermissionClientTest {
             @Override
             public boolean hasAnyAccessibleResources(String userId, String permissionType, String resourceType, String tenantId) {
                 return false;
+            }
+
+            @Override
+            public boolean hasPermission(String permissionType, String resourceId) {
+                return false;
+            }
+
+            @Override
+            public List<String> getAccessibleResourceIds(String permissionType, String resourceType) {
+                return Collections.emptyList();
+            }
+
+            @Override
+            public AccessibleResourcesResponse getAccessibleResources(String permissionType, String resourceType, int limit, int offset) {
+                return new AccessibleResourcesResponse(Collections.emptyList(), permissionType, resourceType, null, 0);
+            }
+
+            @Override
+            public boolean hasAnyAccessibleResources(String permissionType, String resourceType) {
+                return false;
+            }
+
+            @Override
+            public CreateResourceResponse createResource(CreateResourceRequest request) {
+                return new CreateResourceResponse(request.getResourceId(), request.getResourceType(), request.getTenantId(), request.getOwnerId(), true);
             }
         };
         

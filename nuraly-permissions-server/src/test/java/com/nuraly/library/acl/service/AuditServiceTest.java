@@ -25,7 +25,7 @@ public class AuditServiceTest {
     
     private UUID tenantId;
     private UUID userId;
-    private UUID resourceId;
+    private String resourceId;
     private UUID permissionId;
     
     @BeforeEach
@@ -35,10 +35,11 @@ public class AuditServiceTest {
         String uniqueId = UUID.randomUUID().toString();
         tenantId = UUID.randomUUID();
         
-        // Create test entities (let Hibernate generate the IDs)
+        // Create test entities 
         userId = UUID.randomUUID(); // Use external user ID
         
         Resource resource = new Resource();
+        resource.id = "test-resource-audit-" + uniqueId;
         resource.name = "Test Resource " + uniqueId;
         resource.resourceType = "document";
         resource.externalTenantId = tenantId;
@@ -240,7 +241,7 @@ public class AuditServiceTest {
         auditService.logResourcePublished(tenantId, userId, resourceId);
         
         // Create log for different resource
-        UUID otherResourceId = UUID.randomUUID();
+        String otherResourceId = "other-resource-id";
         auditService.logPermissionGranted(tenantId, userId, userId, otherResourceId, permissionId);
         
         // When
