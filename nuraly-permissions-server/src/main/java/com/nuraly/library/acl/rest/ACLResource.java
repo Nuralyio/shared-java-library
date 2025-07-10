@@ -1,12 +1,12 @@
 package com.nuraly.library.acl.rest;
 
+import com.nuraly.library.acl.dto.*;
 import com.nuraly.library.acl.model.*;
 import com.nuraly.library.acl.service.ACLService;
 import com.nuraly.library.acl.service.UserContextService;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -19,7 +19,6 @@ import org.eclipse.microprofile.openapi.annotations.media.Content;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.jboss.logging.Logger;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -1282,222 +1281,4 @@ public class ACLResource {
             return createErrorResponse(e);
         }
     }
-}
-
-// Request/Response DTOs
-
-@Schema(description = "Request to check if a user has a specific permission on a resource")
-class PermissionCheckRequest {
-    @Schema(description = "User ID to check permission for", required = true)
-    public UUID userId;
-    
-    @Schema(description = "Resource ID to check permission on", required = true)
-    public String resourceId; // Already String
-    
-    @Schema(description = "Permission name to check", required = true, example = "read")
-    public String permissionName;
-    
-    @Schema(description = "Tenant ID for tenant-scoped permissions")
-    public UUID tenantId;
-}
-
-@Schema(description = "Request to check anonymous access to a resource")
-class AnonymousPermissionCheckRequest {
-    @Schema(description = "Resource ID to check permission on", required = true)
-    public String resourceId; // Already String
-    
-    @Schema(description = "Permission name to check", required = true, example = "read")
-    public String permissionName;
-    
-    @Schema(description = "Tenant ID for tenant-scoped permissions")
-    public UUID tenantId;
-}
-
-@Schema(description = "Response containing permission check result")
-class PermissionCheckResponse {
-    @Schema(description = "Whether the user has the requested permission")
-    public boolean hasPermission;
-    
-    @Schema(description = "Error message if permission check failed")
-    public String errorMessage;
-    
-    public PermissionCheckResponse() {}
-    
-    public PermissionCheckResponse(boolean hasPermission, String errorMessage) {
-        this.hasPermission = hasPermission;
-        this.errorMessage = errorMessage;
-    }
-}
-
-@Schema(description = "Request to grant a permission to a user on a resource")
-class GrantPermissionRequest {
-    @Schema(description = "User ID to grant permission to", required = true)
-    public UUID userId;
-    
-    @Schema(description = "Resource ID to grant permission on", required = true)
-    public String resourceId;
-    
-    @Schema(description = "Permission ID to grant", required = true)
-    public UUID permissionId;
-    
-    @Schema(description = "Optional expiration date for the permission")
-    public LocalDateTime expiresAt;
-}
-
-@Schema(description = "Simplified request to grant a permission using current user context")
-class SimpleGrantPermissionRequest {
-    @Schema(description = "User ID to grant permission to", required = true)
-    public UUID targetUserId;
-    
-    @Schema(description = "Resource ID to grant permission on", required = true)
-    public String resourceId;
-    
-    @Schema(description = "Permission ID to grant", required = true)
-    public UUID permissionId;
-    
-    @Schema(description = "Optional expiration date for the permission")
-    public LocalDateTime expiresAt;
-}
-
-@Schema(description = "Request to grant a permission to a role on a resource")
-class GrantRolePermissionRequest {
-    @Schema(description = "Role ID to grant permission to", required = true)
-    public UUID roleId;
-    
-    @Schema(description = "Resource ID to grant permission on", required = true)
-    public String resourceId;
-    
-    @Schema(description = "Permission ID to grant", required = true)
-    public UUID permissionId;
-    
-    @Schema(description = "Optional expiration date for the permission")
-    public LocalDateTime expiresAt;
-}
-
-@Schema(description = "Request to revoke a permission from a user on a resource")
-class RevokePermissionRequest {
-    @Schema(description = "User ID to revoke permission from", required = true)
-    public UUID userId;
-    
-    @Schema(description = "Resource ID to revoke permission on", required = true)
-    public String resourceId;
-    
-    @Schema(description = "Permission ID to revoke", required = true)
-    public UUID permissionId;
-    
-    @Schema(description = "Reason for revoking the permission")
-    public String reason;
-}
-
-@Schema(description = "Simplified request to revoke a permission using current user context")
-class SimpleRevokePermissionRequest {
-    @Schema(description = "User ID to revoke permission from", required = true)
-    public UUID targetUserId;
-    
-    @Schema(description = "Resource ID to revoke permission on", required = true)
-    public String resourceId;
-    
-    @Schema(description = "Permission ID to revoke", required = true)
-    public UUID permissionId;
-    
-    @Schema(description = "Reason for revoking the permission")
-    public String reason;
-}
-
-@Schema(description = "Request to share a resource with another user")
-class ShareResourceRequest {
-    @Schema(description = "Resource ID to share", required = true)
-    public String resourceId;
-    
-    @Schema(description = "User ID to share the resource with", required = true)
-    public UUID targetUserId;
-    
-    @Schema(description = "Role ID to assign to the user", required = true)
-    public UUID roleId;
-}
-
-@Schema(description = "Request to publish a resource for public access")
-class PublishResourceRequest {
-    @Schema(description = "Resource ID to publish", required = true)
-    public String resourceId;
-    
-    @Schema(description = "List of permission names to allow for public access", required = true)
-    public List<String> permissionNames;
-}
-
-@Schema(description = "Request to unpublish a resource (remove public access)")
-class UnpublishResourceRequest {
-    @Schema(description = "Resource ID to unpublish", required = true)
-    public String resourceId;
-}
-
-@Schema(description = "Generic operation result")
-class OperationResult {
-    @Schema(description = "Whether the operation was successful")
-    public boolean success;
-    
-    @Schema(description = "Message describing the operation result")
-    public String message;
-    
-    public OperationResult() {}
-    
-    public OperationResult(boolean success, String message) {
-        this.success = success;
-        this.message = message;
-    }
-}
-
-@Schema(description = "Error response")
-class ErrorResponse {
-    @Schema(description = "Error message")
-    public String error;
-    
-    public ErrorResponse() {}
-    
-    public ErrorResponse(String error) {
-        this.error = error;
-    }
-}
-
-// ============================================
-// RESOURCE MANAGEMENT REQUEST/RESPONSE DTOs
-// ============================================
-
-@Schema(description = "Request to register a new resource with the ACL system")
-class RegisterResourceRequest {
-    @Schema(description = "Resource name", required = true)
-    @NotBlank(message = "Resource name is required and cannot be blank")
-    public String name;
-    
-    @Schema(description = "Resource description")
-    public String description;
-    
-    @Schema(description = "Resource type (e.g., 'document', 'dashboard', 'function')", required = true)
-    @NotBlank(message = "Resource type is required and cannot be blank")
-    public String resourceType;
-    
-    @Schema(description = "External resource ID - reference to the actual resource in other systems", required = true)
-    @NotBlank(message = "External ID is required and cannot be blank")
-    public String externalId;
-    
-    @Schema(description = "Owner user ID - if not specified, current user becomes owner")
-    public UUID ownerId;
-}
-
-@Schema(description = "Request to transfer resource ownership")
-class TransferOwnershipRequest {
-    @Schema(description = "New owner user ID", required = true)
-    public UUID newOwnerId;
-    
-    @Schema(description = "Reason for ownership transfer")
-    public String reason;
-}
-
-@Schema(description = "Request to update resource metadata")
-class UpdateResourceRequest {
-    @Schema(description = "New resource name")
-    public String name;
-    
-    @Schema(description = "New resource description")
-    public String description;
 }

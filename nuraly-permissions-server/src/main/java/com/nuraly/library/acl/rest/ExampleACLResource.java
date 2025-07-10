@@ -1,5 +1,6 @@
 package com.nuraly.library.acl.rest;
 
+import com.nuraly.library.acl.dto.*;
 import com.nuraly.library.acl.model.*;
 import com.nuraly.library.acl.service.ACLService;
 import com.nuraly.library.permissions.client.RequiresPermission;
