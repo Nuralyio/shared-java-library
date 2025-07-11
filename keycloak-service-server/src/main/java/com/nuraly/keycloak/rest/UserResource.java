@@ -1,5 +1,6 @@
 package com.nuraly.keycloak.rest;
 
+import com.nuraly.keycloak.dto.EmailToUuidMapping;
 import com.nuraly.keycloak.service.KeycloakService;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.jboss.logging.Logger;
@@ -198,6 +199,41 @@ public class UserResource {
             return Response.ok(users).build();
         } catch (Exception e) {
             LOG.error("Error retrieving users by IDs", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("{\"error\": \"Internal server error\"}")
+                    .build();
+        }
+    }
+
+    @POST
+    @Path("/emails-to-uuids")
+    @Operation(
+        summary = "Get UUIDs for multiple email addresses",
+        description = "Get the UUIDs (unique identifiers) for multiple users by their email addresses. Returns email-to-UUID mappings for emails that correspond to existing users."
+    )
+    @APIResponses({
+        @APIResponse(
+            responseCode = "200",
+            description = "Email to UUID mappings retrieved successfully (may include partial results if some emails are not found)",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON,
+                schema = @Schema(implementation = EmailToUuidMapping.class)
+            )
+        ),
+        @APIResponse(
+            responseCode = "500",
+            description = "Internal server error",
+            content = @Content(mediaType = MediaType.APPLICATION_JSON)
+        )
+    })
+    public Response getUserIdsByEmails(
+            @Parameter(description = "List of email addresses to lookup", required = true)
+            List<String> emails) {
+        try {
+            List<EmailToUuidMapping> mappings = keycloakService.getEmailToUuidMappings(emails);
+            return Response.ok(mappings).build();
+        } catch (Exception e) {
+            LOG.error("Error mapping emails to UUIDs", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
                     .entity("{\"error\": \"Internal server error\"}")
                     .build();

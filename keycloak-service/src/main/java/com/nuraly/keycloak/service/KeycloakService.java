@@ -1,5 +1,6 @@
 package com.nuraly.keycloak.service;
 
+import com.nuraly.keycloak.dto.EmailToUuidMapping;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.admin.client.resource.UsersResource;
@@ -185,6 +186,24 @@ public class KeycloakService {
                 .map(this::getUserById)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
+                .collect(Collectors.toList());
+    }
+
+    public List<String> getUserIdsByEmails(List<String> emails) {
+        return emails.stream()
+                .map(this::getEmailToUuidMapping)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toList());
+    }
+
+    public List<EmailToUuidMapping> getEmailToUuidMappings(List<String> emails) {
+        return emails.stream()
+                .map(email -> {
+                    Optional<String> uuid = getEmailToUuidMapping(email);
+                    return uuid.map(u -> new EmailToUuidMapping(email, u)).orElse(null);
+                })
+                .filter(mapping -> mapping != null)
                 .collect(Collectors.toList());
     }
 
