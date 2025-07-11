@@ -1,5 +1,6 @@
 package com.nuraly.keycloak.client.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +10,7 @@ import java.util.Objects;
  * Simplified User representation for Keycloak client operations.
  * Contains essential user information needed by client applications.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class User {
     
     @JsonProperty("id")
