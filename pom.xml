@@ -17,7 +17,7 @@
     <modules>
         <module>nuraly-permissions-client</module>
         <module>nuraly-permissions-server</module>
-        <module>keycloak-service</module>
+        <module>keycloak-service-server</module>
     </modules>
     <build>
         <plugins>
